@@ -42,7 +42,19 @@ Work can return a single value.
 Work that returns a value uses an overload of `TaskGroup.Run` that returns an awaitable result.
 Reminder: if you are returning these results outside the task group scope, then the task group must complete all its work before that scope is complete.
 
+Result values are not treated as resources; their lifetime is not scoped to the task group.
+
 ### Sequences
+
+Work can return multiple values by returning `IAsyncEnumerable<T>`.
+The work itself is queued as normal, and begins producing values immediately.
+The values go into a bounded channel.
+
+It's not possible to return sequences outside the task group, since the task group must complete (and thus the sequence must be complete).
+It is possible to have task group work explicitly write to a channel, or collect all the results and return them once the sequence (and thus the work) is complete.
+
+Sequence values are treated as resources and are scoped to the task group.
+If you need a sequence value to outlast the task group, use a reference counted disposable.
 
 ### Races
 

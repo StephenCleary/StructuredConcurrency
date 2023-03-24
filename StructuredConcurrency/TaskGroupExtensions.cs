@@ -5,6 +5,8 @@ namespace Nito.StructuredConcurrency;
 
 public static class TaskGroupExtensions
 {
+    // TODO: treat sequence values as resources.
+
     public static IAsyncEnumerable<T> RunSequence<T>(this TaskGroup group, Func<CancellationToken, IAsyncEnumerable<T>> work) => RunSequence(group, 1, work);
 
     public static IAsyncEnumerable<T> RunSequence<T>(this TaskGroup group, int capacity, Func<CancellationToken, IAsyncEnumerable<T>> work)
