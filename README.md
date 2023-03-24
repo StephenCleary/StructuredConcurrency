@@ -38,6 +38,10 @@ All exceptions raised by disposal of any resource are ignored.
 
 ### Results
 
+Work can return a single value.
+Work that returns a value uses an overload of `TaskGroup.Run` that returns an awaitable result.
+Reminder: if you are returning these results outside the task group scope, then the task group must complete all its work before that scope is complete.
+
 ### Sequences
 
 ### Races
