@@ -1,0 +1,3 @@
+CancelIoEx
+GetStdHandle
+STD_HANDLE
