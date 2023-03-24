@@ -1,4 +1,5 @@
-﻿using Nito.StructuredConcurrency.Internals;
+﻿using Nito.Disposables;
+using Nito.StructuredConcurrency.Internals;
 using System.Runtime.ExceptionServices;
 
 namespace Nito.StructuredConcurrency;
@@ -18,6 +19,7 @@ public sealed class TaskGroup : IAsyncDisposable
     private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly DynamicTaskWhenAll _tasks;
     private readonly TaskCompletionSource _groupScope;
+    private readonly CollectionAsyncDisposable _resources;
 
     /// <summary>
     /// Creates a task group, optionally linking it to an upstream cancellation source.
@@ -28,12 +30,16 @@ public sealed class TaskGroup : IAsyncDisposable
         _tasks = new();
         _groupScope = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _tasks.Add(_groupScope.Task);
+        _resources = new();
     }
 
     /// <summary>
     /// Cancels this task group. This is sometimes done just before disposing the task group.
     /// </summary>
     public void Cancel() => _cancellationTokenSource.Cancel();
+
+    public ValueTask AddResourceAsync(IDisposable? disposable) => _resources.AddAsync(DisposeUtility.Wrap(disposable));
+    public ValueTask AddResourceAsync(IAsyncDisposable? disposable) => _resources.AddAsync(DisposeUtility.Wrap(disposable));
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
@@ -123,6 +129,7 @@ public sealed class TaskGroup : IAsyncDisposable
         {
         }
 
+        await _resources.DisposeAsync().ConfigureAwait(false);
         _cancellationTokenSource.Dispose();
 
         if (compositeTask.Exception != null)

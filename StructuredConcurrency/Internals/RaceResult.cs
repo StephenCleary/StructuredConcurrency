@@ -22,7 +22,7 @@ public sealed class RaceResult<TResult>
             _ => InterlockedEx.SetAndReturn(out wonRace, true, x with { Done = true, Result = result, Exceptions = ImmutableQueue<Exception>.Empty }),
         });
         if (!wonRace)
-            await DisposeUtility.CreateAsyncDisposable(result).DisposeAsync().ConfigureAwait(false);
+            await DisposeUtility.WrapStandalone(result).DisposeAsync().ConfigureAwait(false);
     }
 
     /// <summary>

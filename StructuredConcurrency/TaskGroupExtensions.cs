@@ -31,16 +31,15 @@ public static class TaskGroupExtensions
     }
 
 #pragma warning disable CS1998
-    public static Task RunChildGroup(this TaskGroup parentGroup, Action<TaskGroup> work, params object[] resources) => RunChildGroup(parentGroup, async g => work(g), resources);
+    public static Task RunChildGroup(this TaskGroup parentGroup, Action<TaskGroup> work) => RunChildGroup(parentGroup, async g => work(g));
 #pragma warning restore CS1998
-    public static Task RunChildGroup(this TaskGroup parentGroup, Func<TaskGroup, Task> work, params object[] resources)
+    public static Task RunChildGroup(this TaskGroup parentGroup, Func<TaskGroup, Task> work)
     {
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         parentGroup.Run(async ct =>
         {
             try
             {
-                await using var resourceCleanup = DisposeUtility.CreateAsyncDisposable(resources);
                 var childGroup = new TaskGroup(ct);
                 await using (childGroup.ConfigureAwait(false))
                 {
@@ -75,16 +74,15 @@ public static class TaskGroupExtensions
     }
 
 #pragma warning disable CS1998
-    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Action<TaskGroup, RaceResult<TResult>> work, params object[] resources) => RaceChildGroup<TResult>(parentGroup, async (g, r) => work(g, r), resources);
+    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Action<TaskGroup, RaceResult<TResult>> work) => RaceChildGroup<TResult>(parentGroup, async (g, r) => work(g, r));
 #pragma warning restore CS1998
-    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Func<TaskGroup, RaceResult<TResult>, Task> work, params object[] resources)
+    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Func<TaskGroup, RaceResult<TResult>, Task> work)
     {
         var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         parentGroup.Run(async ct =>
         {
             try
             {
-                await using var resourceCleanup = DisposeUtility.CreateAsyncDisposable(resources);
                 var raceResult = new RaceResult<TResult>();
                 var childGroup = new TaskGroup(ct);
                 await using (childGroup.ConfigureAwait(false))

@@ -38,8 +38,9 @@ serverGroup.Run(async token =>
 {
     await foreach (var socket in sockets)
     {
-        _ = serverGroup.RunChildGroup(connectionGroup =>
+        _ = serverGroup.RunChildGroup(async connectionGroup =>
         {
+            await connectionGroup.AddResourceAsync(socket);
             connectionGroup.Run(async ct =>
             {
                 var buffer = new byte[1024];
@@ -49,7 +50,7 @@ serverGroup.Run(async token =>
                     await socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
                 }
             });
-        }, socket);
+        });
     }
 });
 

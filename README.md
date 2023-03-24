@@ -31,7 +31,14 @@ Task groups can also be cancelled manually (via `TaskGroup.Cancel()`) if the pro
 
 ### Resources
 
+A task group can own resources.
+These resources will be disposed by the task group after all its work is done.
+
+All exceptions raised by disposal of any resource are ignored.
+
 ### Results
+
+### Sequences
 
 ### Races
 

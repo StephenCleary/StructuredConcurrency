@@ -4,20 +4,13 @@ namespace Nito.StructuredConcurrency.Internals;
 
 public static class DisposeUtility
 {
-    public static IAsyncDisposable CreateAsyncDisposable(params object?[] resources)
-    {
-        if (resources.Length == 0)
-            return NoopDisposable.Instance;
-        var disposableResources = resources
-            .Select(x => x is IAsyncDisposable asyncDisposable ? asyncDisposable : x is IDisposable disposable ? disposable.ToAsyncDisposable() : null)
-            .Where(x => x != null)
-            .Select(x => new IgnoreExceptionsDisposeWrapper(x!))
-            .ToList();
-        if (disposableResources.Count == 0)
-            return NoopDisposable.Instance;
+    public static IAsyncDisposable? Wrap(IDisposable? disposable) => disposable == null ? null : new IgnoreExceptionsDisposeWrapper(disposable.ToAsyncDisposable());
+    public static IAsyncDisposable? Wrap(IAsyncDisposable? disposable) => disposable == null ? null : new IgnoreExceptionsDisposeWrapper(disposable);
 
-        return new CollectionAsyncDisposable(disposableResources);
-    }
+    public static IAsyncDisposable WrapStandalone(object? resource) =>
+        resource is IDisposable disposable ? Wrap(disposable)! :
+        resource is IAsyncDisposable asyncDisposable ? Wrap(asyncDisposable)! :
+        NoopDisposable.Instance;
 
     private sealed class IgnoreExceptionsDisposeWrapper : IAsyncDisposable
     {
