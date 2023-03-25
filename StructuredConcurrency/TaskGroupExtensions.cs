@@ -5,8 +5,6 @@ namespace Nito.StructuredConcurrency;
 
 public static class TaskGroupExtensions
 {
-    // TODO: treat sequence values as resources.
-
     public static IAsyncEnumerable<T> RunSequence<T>(this TaskGroup group, Func<CancellationToken, IAsyncEnumerable<T>> work) => RunSequence(group, 1, work);
 
     public static IAsyncEnumerable<T> RunSequence<T>(this TaskGroup group, int capacity, Func<CancellationToken, IAsyncEnumerable<T>> work)
@@ -17,7 +15,10 @@ public static class TaskGroupExtensions
             try
             {
                 await foreach (var item in work(ct).WithCancellation(ct).ConfigureAwait(false))
+                {
+                    await group.AddResourceAsync(DisposeUtility.TryWrapStandalone(item)).ConfigureAwait(false);
                     await channel.Writer.WriteAsync(item, ct).ConfigureAwait(false);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

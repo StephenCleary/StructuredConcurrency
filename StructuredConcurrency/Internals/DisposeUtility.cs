@@ -7,10 +7,12 @@ public static class DisposeUtility
     public static IAsyncDisposable? Wrap(IDisposable? disposable) => disposable == null ? null : new IgnoreExceptionsDisposeWrapper(disposable.ToAsyncDisposable());
     public static IAsyncDisposable? Wrap(IAsyncDisposable? disposable) => disposable == null ? null : new IgnoreExceptionsDisposeWrapper(disposable);
 
-    public static IAsyncDisposable WrapStandalone(object? resource) =>
+    public static IAsyncDisposable WrapStandalone(object? resource) => TryWrapStandalone(resource) ?? NoopDisposable.Instance;
+
+    public static IAsyncDisposable? TryWrapStandalone(object? resource) =>
         resource is IDisposable disposable ? Wrap(disposable)! :
         resource is IAsyncDisposable asyncDisposable ? Wrap(asyncDisposable)! :
-        NoopDisposable.Instance;
+        null;
 
     private sealed class IgnoreExceptionsDisposeWrapper : IAsyncDisposable
     {
