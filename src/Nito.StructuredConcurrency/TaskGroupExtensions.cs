@@ -56,7 +56,7 @@ public static class TaskGroupExtensions
     }
 
     /// <summary>
-    /// Starts a child task group. This is an advanced operation.
+    /// Starts a child task group.
     /// Child task groups honor cancellation from their parent task group, but they do not pass exceptions up to their parent.
     /// </summary>
     /// <param name="parentGroup">The parent task group.</param>
@@ -67,7 +67,7 @@ public static class TaskGroupExtensions
 #pragma warning restore CS1998
 
     /// <summary>
-    /// Starts a child task group. This is an advanced operation.
+    /// Starts a child task group.
     /// Child task groups honor cancellation from their parent task group, but they do not pass exceptions up to their parent.
     /// </summary>
     /// <param name="parentGroup">The parent task group.</param>
@@ -97,35 +97,6 @@ public static class TaskGroupExtensions
     }
 
     /// <summary>
-    /// Adds race work to this task group.
-    /// Races cancel their task group on success instead of on fault.
-    /// Faulting races are ignored.
-    /// Results of successful races that do not "win" (i.e., are not the first result) are treated as resources and are immediately disposed.
-    /// </summary>
-    /// <typeparam name="TResult">The result type of the race work.</typeparam>
-    /// <param name="group">The task group.</param>
-    /// <param name="raceResult">The race result for that task group.</param>
-    /// <param name="work">The race work to do.</param>
-    public static void Race<TResult>(this TaskGroup group, RaceResult<TResult> raceResult, Func<CancellationToken, Task<TResult>> work)
-    {
-        _ = group ?? throw new ArgumentNullException(nameof(group));
-
-        group.Run(async ct =>
-        {
-            try
-            {
-                var result = await work(ct).ConfigureAwait(false);
-                await raceResult.ReportResultAsync(result).ConfigureAwait(false);
-                group.CancellationTokenSource.Cancel();
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                raceResult.ReportException(ex);
-            }
-        });
-    }
-
-    /// <summary>
     /// Starts a racing child task group.
     /// Child task groups honor cancellation from their parent task group, but they do not pass exceptions up to their parent.
     /// </summary>
@@ -134,7 +105,7 @@ public static class TaskGroupExtensions
     /// <param name="work">The work do be done, using the racing child task group. There is no need to place the racing child task group in an <c>await using</c> block.</param>
     /// <returns>The result of the race. This task will be faulted if the all races fault.</returns>
 #pragma warning disable CS1998
-    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Action<TaskGroup, RaceResult<TResult>> work) => RaceChildGroup<TResult>(parentGroup, async (g, r) => work(g, r));
+    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Action<RacingTaskGroup<TResult>> work) => RaceChildGroup<TResult>(parentGroup, async (g) => work(g));
 #pragma warning restore CS1998
 
     /// <summary>
@@ -145,7 +116,7 @@ public static class TaskGroupExtensions
     /// <param name="parentGroup">The parent task group.</param>
     /// <param name="work">The work do be done, using the racing child task group. There is no need to place the racing child task group in an <c>await using</c> block.</param>
     /// <returns>The result of the race. This task will be faulted if the all races fault.</returns>
-    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Func<TaskGroup, RaceResult<TResult>, Task> work)
+    public static Task<TResult> RaceChildGroup<TResult>(this TaskGroup parentGroup, Func<RacingTaskGroup<TResult>, Task> work)
     {
         _ = parentGroup ?? throw new ArgumentNullException(nameof(parentGroup));
 
@@ -155,14 +126,13 @@ public static class TaskGroupExtensions
 #pragma warning disable CA1031 // Do not catch general exception types
             try
             {
-                var raceResult = new RaceResult<TResult>();
-                var childGroup = new TaskGroup(ct);
-                await using (childGroup.ConfigureAwait(false))
+                var raceGroup = new RacingTaskGroup<TResult>(ct);
+                await using (raceGroup.ConfigureAwait(false))
                 {
-                    await work(childGroup, raceResult).ConfigureAwait(false);
+                    await work(raceGroup).ConfigureAwait(false);
                 }
 
-                tcs.TrySetResult(raceResult.GetResult());
+                tcs.TrySetResult(raceGroup.GetResult());
             }
             catch (Exception ex) // Including OperationCanceledException
             {
