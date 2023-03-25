@@ -42,16 +42,10 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <summary>
     /// Adds a resource to this task group. Resources are disposed (in reverse order) after all the tasks in the task group complete.
     /// </summary>
-    /// <param name="disposable">The resource to add.</param>
+    /// <param name="resource">The resource to add.</param>
 #pragma warning disable CA2000 // Dispose objects before losing scope
-    public ValueTask AddResourceAsync(IDisposable? disposable) => _resources.AddAsync(DisposeUtility.Wrap(disposable));
+    public ValueTask AddResourceAsync(object? resource) => _resources.AddAsync(DisposeUtility.TryWrap(resource));
 #pragma warning restore CA2000 // Dispose objects before losing scope
-
-    /// <summary>
-    /// Adds a resource to this task group. Resources are disposed (in reverse order) after all the tasks in the task group complete.
-    /// </summary>
-    /// <param name="disposable">The resource to add.</param>
-    public ValueTask AddResourceAsync(IAsyncDisposable? disposable) => _resources.AddAsync(DisposeUtility.Wrap(disposable));
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.

@@ -38,7 +38,7 @@ public static class TaskGroupExtensions
             {
                 await foreach (var item in work(ct).WithCancellation(ct).ConfigureAwait(false))
                 {
-                    await group.AddResourceAsync(DisposeUtility.TryWrapStandalone(item)).ConfigureAwait(false);
+                    await group.AddResourceAsync(DisposeUtility.TryWrap(item)).ConfigureAwait(false);
                     await channel.Writer.WriteAsync(item, ct).ConfigureAwait(false);
                 }
             }

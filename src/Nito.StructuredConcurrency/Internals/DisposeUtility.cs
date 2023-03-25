@@ -8,34 +8,20 @@ namespace Nito.StructuredConcurrency.Internals;
 public static class DisposeUtility
 {
     /// <summary>
-    /// Wraps an <see cref="IDisposable"/> in an <see cref="IAsyncDisposable"/> that ignores exceptions.
-    /// Returns <c>null</c> if <paramref name="disposable"/> is <c>null</c>.
-    /// </summary>
-    /// <param name="disposable">The disposable to wrap.</param>
-    public static IAsyncDisposable? Wrap(IDisposable? disposable) => disposable == null ? null : new IgnoreExceptionsDisposeWrapper(disposable.ToAsyncDisposable());
-
-    /// <summary>
-    /// Wraps an <see cref="IDisposable"/> in an <see cref="IAsyncDisposable"/> that ignores exceptions.
-    /// Returns <c>null</c> if <paramref name="disposable"/> is <c>null</c>.
-    /// </summary>
-    /// <param name="disposable">The disposable to wrap.</param>
-    public static IAsyncDisposable? Wrap(IAsyncDisposable? disposable) => disposable == null ? null : new IgnoreExceptionsDisposeWrapper(disposable);
-
-    /// <summary>
     /// Wraps a resource in an <see cref="IAsyncDisposable"/> that ignores exceptions.
     /// Returns <see cref="NoopDisposable"/> if <paramref name="resource"/> is <c>null</c>.
     /// </summary>
     /// <param name="resource">The resource to wrap.</param>
-    public static IAsyncDisposable WrapStandalone(object? resource) => TryWrapStandalone(resource) ?? NoopDisposable.Instance;
+    public static IAsyncDisposable Wrap(object? resource) => TryWrap(resource) ?? NoopDisposable.Instance;
 
     /// <summary>
     /// Wraps a resource in an <see cref="IAsyncDisposable"/> that ignores exceptions.
     /// Returns <c>null</c> if <paramref name="resource"/> is <c>null</c>.
     /// </summary>
     /// <param name="resource">The resource to wrap.</param>
-    public static IAsyncDisposable? TryWrapStandalone(object? resource) =>
-        resource is IDisposable disposable ? Wrap(disposable)! :
-        resource is IAsyncDisposable asyncDisposable ? Wrap(asyncDisposable)! :
+    public static IAsyncDisposable? TryWrap(object? resource) =>
+        resource is IDisposable disposable ? new IgnoreExceptionsDisposeWrapper(disposable.ToAsyncDisposable()) :
+        resource is IAsyncDisposable asyncDisposable ? new IgnoreExceptionsDisposeWrapper(asyncDisposable) :
         null;
 
     private sealed class IgnoreExceptionsDisposeWrapper : IAsyncDisposable
