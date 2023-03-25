@@ -1,0 +1,5 @@
+- Finish HappyEyeballs
+- Write TCP/IP chat app for comparison.
+  - Pipelines, etc.
+- Move usage examples to readme.
+- Do we need to hide advanced APIs?
