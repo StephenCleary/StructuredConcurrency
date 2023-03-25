@@ -310,7 +310,7 @@ public class Usage
             });
 
             // Oh, hey, we don't need this pipeline after all.
-            group.Cancel();
+            group.CancellationTokenSource.Cancel();
             return 42;
         }
 

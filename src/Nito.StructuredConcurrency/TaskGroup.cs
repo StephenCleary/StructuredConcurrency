@@ -1,6 +1,5 @@
 ﻿using Nito.Disposables;
 using Nito.StructuredConcurrency.Internals;
-using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 
 namespace Nito.StructuredConcurrency;
@@ -17,7 +16,6 @@ namespace Nito.StructuredConcurrency;
 /// </summary>
 public sealed class TaskGroup : IAsyncDisposable
 {
-    private readonly CancellationTokenSource _cancellationTokenSource;
     private readonly DynamicTaskWhenAll _tasks;
     private readonly TaskCompletionSource _groupScope;
     private readonly CollectionAsyncDisposable _resources;
@@ -27,7 +25,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// </summary>
     public TaskGroup(CancellationToken cancellationToken = default)
     {
-        _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        CancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _tasks = new();
         _groupScope = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _tasks.Add(_groupScope.Task);
@@ -35,9 +33,9 @@ public sealed class TaskGroup : IAsyncDisposable
     }
 
     /// <summary>
-    /// Cancels this task group. This is sometimes done just before disposing the task group.
+    /// The cancellation token source for this task group; this can be used to manually initiate cancellation of the task group.
     /// </summary>
-    public void Cancel() => _cancellationTokenSource.Cancel();
+    public CancellationTokenSource CancellationTokenSource { get; }
 
     /// <summary>
     /// Adds a resource to this task group. Resources are disposed (in reverse order) after all the tasks in the task group complete.
@@ -68,7 +66,7 @@ public sealed class TaskGroup : IAsyncDisposable
     public Task<T> Run<T>(Func<CancellationToken, Task<T>> work)
     {
         var startSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var result = CancelOnException(_cancellationTokenSource, DelayStart(startSignal.Task, work))(_cancellationTokenSource.Token);
+        var result = CancelOnException(CancellationTokenSource, DelayStart(startSignal.Task, work))(CancellationTokenSource.Token);
         var childTask = IgnoreCancellation(result);
         _tasks.Add(childTask);
 
@@ -129,7 +127,7 @@ public sealed class TaskGroup : IAsyncDisposable
 #pragma warning restore CA1031 // Do not catch general exception types
 
         await _resources.DisposeAsync().ConfigureAwait(false);
-        _cancellationTokenSource.Dispose();
+        CancellationTokenSource.Dispose();
 
         if (compositeTask.Exception != null)
             ExceptionDispatchInfo.Capture(compositeTask.Exception.InnerException!).Throw();

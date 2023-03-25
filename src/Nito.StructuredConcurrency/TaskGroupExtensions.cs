@@ -116,7 +116,7 @@ public static class TaskGroupExtensions
             {
                 var result = await work(ct).ConfigureAwait(false);
                 await raceResult.ReportResultAsync(result).ConfigureAwait(false);
-                group.Cancel();
+                group.CancellationTokenSource.Cancel();
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
