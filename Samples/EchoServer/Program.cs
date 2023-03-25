@@ -38,7 +38,7 @@ serverGroup.Run(async token =>
 {
     await foreach (var socket in sockets)
     {
-        _ = serverGroup.RunChildGroup(async connectionGroup =>
+        serverGroup.RunChildGroup(async connectionGroup =>
         {
             await connectionGroup.AddResourceAsync(socket);
             connectionGroup.Run(async ct =>

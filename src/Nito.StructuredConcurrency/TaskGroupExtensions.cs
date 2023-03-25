@@ -63,7 +63,7 @@ public static class TaskGroupExtensions
     /// <param name="work">The work do be done, using the child task group. There is no need to place the child task group in an <c>await using</c> block.</param>
     /// <returns>A task that completes when the child task group has completed. This task will be faulted if the child task group faults.</returns>
 #pragma warning disable CS1998
-    public static Task RunChildGroup(this TaskGroup parentGroup, Action<TaskGroup> work) => RunChildGroup(parentGroup, async g => work(g));
+    public static void RunChildGroup(this TaskGroup parentGroup, Action<TaskGroup> work) => RunChildGroup(parentGroup, async g => work(g));
 #pragma warning restore CS1998
 
     /// <summary>
@@ -73,11 +73,10 @@ public static class TaskGroupExtensions
     /// <param name="parentGroup">The parent task group.</param>
     /// <param name="work">The work do be done, using the child task group. There is no need to place the child task group in an <c>await using</c> block.</param>
     /// <returns>A task that completes when the child task group has completed. This task will be faulted if the child task group faults.</returns>
-    public static Task RunChildGroup(this TaskGroup parentGroup, Func<TaskGroup, Task> work)
+    public static void RunChildGroup(this TaskGroup parentGroup, Func<TaskGroup, Task> work)
     {
         _ = parentGroup ?? throw new ArgumentNullException(nameof(parentGroup));
 
-        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         parentGroup.Run(async ct =>
         {
 #pragma warning disable CA1031 // Do not catch general exception types
@@ -88,16 +87,13 @@ public static class TaskGroupExtensions
                 {
                     await work(childGroup).ConfigureAwait(false);
                 }
-                tcs.TrySetResult();
             }
-            catch (Exception ex) // Including OperationCanceledException
+            catch // Including OperationCanceledException
             {
-                tcs.TrySetException(ex);
                 // Child group exceptions do not propagate to the parent.
             }
 #pragma warning restore CA1031 // Do not catch general exception types
         });
-        return tcs.Task;
     }
 
     /// <summary>
