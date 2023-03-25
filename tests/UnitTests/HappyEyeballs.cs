@@ -18,7 +18,7 @@ public sealed class HappyEyeballs
             foreach (var ipAddress in ipAddresses)
             {
                 // Attempt
-                raceGroup.Race(token => TryConnectAsync(ipAddress, token));
+                raceGroup.Race(async token => await TryConnectAsync(ipAddress, token));
                 await Task.Delay(TimeSpan.FromMilliseconds(300), raceGroup.CancellationTaskSource.Token);
             }
         });

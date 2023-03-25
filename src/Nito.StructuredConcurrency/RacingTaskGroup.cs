@@ -41,7 +41,7 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     /// Results of successful races that do not "win" (i.e., are not the first result) are treated as resources and are immediately disposed.
     /// </summary>
     /// <param name="work">The race work to do.</param>
-    public void Race(Func<CancellationToken, Task<TResult>> work)
+    public void Race(Func<CancellationToken, ValueTask<TResult>> work)
     {
         _group.Run(async ct =>
         {
@@ -61,14 +61,14 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     /// <inheritdoc cref="TaskGroup.SpawnChildGroup(Action{TaskGroup})"/>
     public void SpawnChildGroup(Action<TaskGroup> work) => _group.SpawnChildGroup(work);
 
-    /// <inheritdoc cref="TaskGroup.SpawnChildGroup(Func{TaskGroup, Task})"/>
-    public void SpawnChildGroup(Func<TaskGroup, Task> work) => _group.SpawnChildGroup(work);
+    /// <inheritdoc cref="TaskGroup.SpawnChildGroup(Func{TaskGroup, ValueTask})"/>
+    public void SpawnChildGroup(Func<TaskGroup, ValueTask> work) => _group.SpawnChildGroup(work);
 
     /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Action{RacingTaskGroup{TResult}})"/>
     public Task<T> RaceChildGroup<T>(Action<RacingTaskGroup<T>> work) => _group.RaceChildGroup(work);
 
-    /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Func{RacingTaskGroup{TResult}, Task})"/>
-    public Task<T> RaceChildGroup<T>(Func<RacingTaskGroup<T>, Task> work) => _group.RaceChildGroup(work);
+    /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Func{RacingTaskGroup{TResult}, ValueTask})"/>
+    public Task<T> RaceChildGroup<T>(Func<RacingTaskGroup<T>, ValueTask> work) => _group.RaceChildGroup(work);
 
     /// <summary>
     /// Asynchronously waits for all tasks in this task group to complete.

@@ -12,8 +12,8 @@ public class Usage
     public async Task ImplicitWhenAll()
     {
         await using var group = new TaskGroup();
-        group.Run(token => Task.Delay(TimeSpan.FromMilliseconds(1), token));
-        group.Run(token => Task.Delay(TimeSpan.FromMilliseconds(2), token));
+        group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(1), token));
+        group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(2), token));
     } // implicit WhenAll
 
     [Fact]

@@ -55,7 +55,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public void Run(Func<CancellationToken, Task> work) => _ = Run(async ct => { await work(ct).ConfigureAwait(false); return 0; });
+    public void Run(Func<CancellationToken, ValueTask> work) => _ = Run(async ct => { await work(ct).ConfigureAwait(false); return 0; });
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
@@ -65,7 +65,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public Task<T> Run<T>(Func<CancellationToken, Task<T>> work)
+    public Task<T> Run<T>(Func<CancellationToken, ValueTask<T>> work)
     {
         var startSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var result = CancelOnException(CancellationTokenSource, DelayStart(startSignal.Task, work))(CancellationTokenSource.Token);
@@ -87,7 +87,7 @@ public sealed class TaskGroup : IAsyncDisposable
             }
         }
 
-        static Func<CancellationToken, Task<T>> DelayStart(Task startSignal, Func<CancellationToken, Task<T>> work) => async cancellationToken =>
+        static Func<CancellationToken, ValueTask<T>> DelayStart(Task startSignal, Func<CancellationToken, ValueTask<T>> work) => async cancellationToken =>
         {
             // Wait until we're in the child task collection before executing the work delegate.
 #pragma warning disable CA2007 // Consider calling ConfigureAwait on the awaited task
@@ -97,7 +97,7 @@ public sealed class TaskGroup : IAsyncDisposable
             return await work(cancellationToken).ConfigureAwait(false);
         };
 
-        static Func<CancellationToken, Task<T>> CancelOnException(CancellationTokenSource cancellationTokenSource, Func<CancellationToken, Task<T>> work) => async cancellationToken =>
+        static Func<CancellationToken, Task<T>> CancelOnException(CancellationTokenSource cancellationTokenSource, Func<CancellationToken, ValueTask<T>> work) => async cancellationToken =>
         {
             try
             {
@@ -170,7 +170,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// </summary>
     /// <param name="work">The work do be done, using the child task group. There is no need to place the child task group in an <c>await using</c> block.</param>
     /// <returns>A task that completes when the child task group has completed. This task will be faulted if the child task group faults.</returns>
-    public void SpawnChildGroup(Func<TaskGroup, Task> work)
+    public void SpawnChildGroup(Func<TaskGroup, ValueTask> work)
     {
         Run(async ct =>
         {
@@ -209,7 +209,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <typeparam name="TResult">The result type of the race work.</typeparam>
     /// <param name="work">The work do be done, using the racing child task group. There is no need to place the racing child task group in an <c>await using</c> block.</param>
     /// <returns>The result of the race. This task will be faulted if the all races fault.</returns>
-    public Task<TResult> RaceChildGroup<TResult>(Func<RacingTaskGroup<TResult>, Task> work)
+    public Task<TResult> RaceChildGroup<TResult>(Func<RacingTaskGroup<TResult>, ValueTask> work)
     {
         var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         Run(async ct =>
