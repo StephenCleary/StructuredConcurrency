@@ -38,7 +38,7 @@ All exceptions raised by disposal of any resource are ignored.
 
 ### Results
 
-Work can return a single value.
+Most work has no results, but it is possible for work toS return a single value.
 Work that returns a value uses an overload of `TaskGroup.Run` that returns an awaitable result.
 Reminder: if you are returning these results outside the task group scope, then the task group must complete all its work before that scope is complete.
 
@@ -54,9 +54,20 @@ It's not possible to return sequences outside the task group, since the task gro
 It is possible to have task group work explicitly write to a channel, or collect all the results and return them once the sequence (and thus the work) is complete.
 
 Sequence values are treated as resources and are scoped to the task group.
-If you need a sequence value to outlast the task group, use a reference counted disposable.
+If you need a sequence value to outlast the task group, return a sequence of reference counted disposables.
 
 ### Races
+
+The usual pattern for task groups is to cancel on failure and ignore success.
+Sometimes, we want to "race" several work items to produce a result; in this case, we want the opposite: ignore failures and cancel on success.
+
+The usual pattern is to create a race child group via `TaskGroup.RaceChildGroup`.
+This creates a separate group along with a race result that are used for races.
+To race work, call `Race` instead of `Run`.
+The first successful `Race` will cancel all the others.
+Once all races have completed (i.e., the race child group's scope is complete), then the results of the race are returned from `RaceChildGroup`.
+
+Successful results that lose the race are treated as resources, but are disposed immediately rather than scoped to the race child group.
 
 # Advanced
 
