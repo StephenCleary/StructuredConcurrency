@@ -52,7 +52,7 @@ public static class TaskGroupExtensions
                 channel.Writer.Complete();
             }
         });
-        return channel.Reader.ReadAllAsync();
+        return channel.Reader.ReadAllAsync(group.CancellationTokenSource.Token);
     }
 
     /// <summary>
