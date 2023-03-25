@@ -38,8 +38,29 @@ public sealed class TaskGroup : IAsyncDisposable
     /// </summary>
     public void Cancel() => _cancellationTokenSource.Cancel();
 
+    /// <summary>
+    /// Adds a resource to this task group. Resources are disposed (in reverse order) after all the tasks in the task group complete.
+    /// </summary>
+    /// <param name="disposable">The resource to add.</param>
+#pragma warning disable CA2000 // Dispose objects before losing scope
     public ValueTask AddResourceAsync(IDisposable? disposable) => _resources.AddAsync(DisposeUtility.Wrap(disposable));
+#pragma warning restore CA2000 // Dispose objects before losing scope
+
+    /// <summary>
+    /// Adds a resource to this task group. Resources are disposed (in reverse order) after all the tasks in the task group complete.
+    /// </summary>
+    /// <param name="disposable">The resource to add.</param>
     public ValueTask AddResourceAsync(IAsyncDisposable? disposable) => _resources.AddAsync(DisposeUtility.Wrap(disposable));
+
+    /// <summary>
+    /// Runs a child task (<paramref name="work"/>) as part of this task group.
+    /// If <paramref name="work"/> throws an <see cref="OperationCanceledException"/>, it will be ignored by the task group.
+    /// If <paramref name="work"/> throws any other exception, then this task group will be canceled.
+    /// If the task group is canceled, then it is possible for an already-canceled token to be passed to <paramref name="work"/>.
+    /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
+    /// </summary>
+    /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
+    public void Run(Func<CancellationToken, Task> work) => _ = AddAndTrack(work);
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
@@ -49,8 +70,6 @@ public sealed class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public void Run(Func<CancellationToken, Task> work) => _ = AddAndTrack(work);
-
     public Task<T> Run<T>(Func<CancellationToken, Task<T>> work) => AddAndTrack(work);
 
     /// <summary>
@@ -98,7 +117,9 @@ public sealed class TaskGroup : IAsyncDisposable
         static Func<CancellationToken, Task<T>> DelayStart(Task startSignal, Func<CancellationToken, Task<T>> work) => async cancellationToken =>
         {
             // Wait until we're in the child task collection before executing the work delegate.
+#pragma warning disable CA2007 // Consider calling ConfigureAwait on the awaited task
             await startSignal;
+#pragma warning restore CA2007 // Consider calling ConfigureAwait on the awaited task
 
             return await work(cancellationToken).ConfigureAwait(false);
         };
@@ -117,10 +138,14 @@ public sealed class TaskGroup : IAsyncDisposable
         };
     }
 
+    /// <summary>
+    /// Asynchronously waits for all tasks in this task group to complete, disposes of any resources owned by the task group, and then raises any exceptions observed by tasks in this task group.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         _groupScope.TrySetResult();
         var compositeTask = _tasks.Task;
+#pragma warning disable CA1031 // Do not catch general exception types
         try
         {
             await compositeTask.ConfigureAwait(false);
@@ -128,6 +153,7 @@ public sealed class TaskGroup : IAsyncDisposable
         catch
         {
         }
+#pragma warning restore CA1031 // Do not catch general exception types
 
         await _resources.DisposeAsync().ConfigureAwait(false);
         _cancellationTokenSource.Dispose();

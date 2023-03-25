@@ -1,4 +1,7 @@
-# Structured Concurrency
+![Logo](src/icon.png)
+
+# Structured Concurrency [![Build status](https://github.com/StephenCleary/StructuredConcurrency/workflows/Build/badge.svg)](https://github.com/StephenCleary/StructuredConcurrency/actions?query=workflow%3ABuild) [![codecov](https://codecov.io/gh/StephenCleary/StructuredConcurrency/branch/master/graph/badge.svg)](https://codecov.io/gh/StephenCleary/StructuredConcurrency) [![NuGet version](https://badge.fury.io/nu/Nito.StructuredConcurrency.svg)](https://www.nuget.org/packages/Nito.StructuredConcurrency)
+Structured Concurrency for C#.
 
 ## Task Groups
 

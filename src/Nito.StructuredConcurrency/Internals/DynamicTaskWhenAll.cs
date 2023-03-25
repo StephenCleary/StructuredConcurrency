@@ -2,15 +2,25 @@
 
 namespace Nito.StructuredConcurrency.Internals;
 
-// TODO: at least one must be added!
-
+/// <summary>
+/// Similar to <see cref="Task.WhenAll(Task[])"/>, but allowing any number of tasks to be added, even after waiting has begun.
+/// At least one task must be added, or else the <see cref="Task"/> will never complete.
+/// </summary>
 public sealed class DynamicTaskWhenAll
 {
     private readonly TaskCompletionSource _taskCompletionSource = new();
     private State _state = new(ImmutableQueue<Exception>.Empty, false, 0);
 
+    /// <summary>
+    /// Adds a task to this dynamic waiter.
+    /// Throws an exception if the wait has already completed.
+    /// </summary>
+    /// <param name="task">The task to add.</param>
+    /// <exception cref="InvalidOperationException">The dynamic waiter has already completed.</exception>
     public void Add(Task task)
     {
+        _ = task ?? throw new ArgumentNullException(nameof(task));
+
         var localState = InterlockedEx.Apply(ref _state, x => x switch
         {
             { Done: true } => x,
@@ -22,6 +32,7 @@ public sealed class DynamicTaskWhenAll
 
         async void Handle(Task task)
         {
+#pragma warning disable CA1031 // Do not catch general exception types
             try
             {
                 await task.ConfigureAwait(false);
@@ -43,6 +54,7 @@ public sealed class DynamicTaskWhenAll
                 });
                 Complete(localState);
             }
+#pragma warning restore CA1031 // Do not catch general exception types
 
             void Complete(State localState)
             {
@@ -56,18 +68,34 @@ public sealed class DynamicTaskWhenAll
         }
     }
 
+    /// <summary>
+    /// Gets a task which is completed when all tasks added to this dynamic awaiter have completed.
+    /// </summary>
     public Task Task => _taskCompletionSource.Task;
 
     private record class State(ImmutableQueue<Exception> Exceptions, bool Done, uint Count);
 }
 
+/// <summary>
+/// Similar to <see cref="Task.WhenAll{TResult}(Task{TResult}[])"/>, but allowing any number of tasks to be added, even after waiting has begun.
+/// At least one task must be added, or else the <see cref="Task"/> will never complete.
+/// </summary>
+/// <typeparam name="TResult">The type of the result of the tasks.</typeparam>
 public sealed class DynamicTaskWhenAll<TResult>
 {
     private readonly TaskCompletionSource<IReadOnlyList<TResult>> _taskCompletionSource = new();
     private State _state = new(ImmutableQueue<Exception>.Empty, ImmutableList<TResult>.Empty, false, 0);
 
+    /// <summary>
+    /// Adds a task to this dynamic waiter.
+    /// Throws an exception if the wait has already completed.
+    /// </summary>
+    /// <param name="task">The task to add.</param>
+    /// <exception cref="InvalidOperationException">The dynamic waiter has already completed.</exception>
     public void Add(Task<TResult> task)
     {
+        _ = task ?? throw new ArgumentNullException(nameof(task));
+
         var localState = InterlockedEx.Apply(ref _state, x => x switch
         {
             { Done: true } => x,
@@ -80,6 +108,7 @@ public sealed class DynamicTaskWhenAll<TResult>
 
         async void Handle(Task<TResult> task)
         {
+#pragma warning disable CA1031 // Do not catch general exception types
             try
             {
                 var result = await task.ConfigureAwait(false);
@@ -101,6 +130,7 @@ public sealed class DynamicTaskWhenAll<TResult>
                 });
                 Complete(localState);
             }
+#pragma warning restore CA1031 // Do not catch general exception types
 
             void Complete(State localState)
             {
@@ -114,6 +144,9 @@ public sealed class DynamicTaskWhenAll<TResult>
         }
     }
 
+    /// <summary>
+    /// Gets a task which is completed when all tasks added to this dynamic awaiter have completed.
+    /// </summary>
     public Task<IReadOnlyList<TResult>> Task => _taskCompletionSource.Task;
 
     private record class State(ImmutableQueue<Exception> Exceptions, ImmutableList<TResult> Results, bool Done, uint Count);

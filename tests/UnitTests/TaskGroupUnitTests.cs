@@ -51,8 +51,8 @@ public class TaskGroupUnitTests
 
         task1Signal.TrySetResult();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => task1);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task2);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => task1!);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task2!);
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() => groupTask);
 
         async Task UseTaskGroup()
@@ -82,7 +82,7 @@ public class TaskGroupUnitTests
 
         cts.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task2);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task2!);
         await groupTask;
 
         async Task UseTaskGroup()
