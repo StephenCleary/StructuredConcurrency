@@ -4,6 +4,7 @@
 #     - Avoid set-output
 #     - Updates: actions/cache@v3, actions/checkout@v3, actions/upload-artifact@v3, codecov/codecov-action@v3, WyriHaximus/github-action-get-previous-tag@v1
 #     - Work around SDK bug (https://github.com/dotnet/sdk/issues/17461)
+#     - Use pre-release ProjProps.
 # 1.4 - Avoid set-env.
 # 1.3 - Include tag workflow in this file.
 # 1.2 - Define DOTNET_SKIP_FIRST_TIME_EXPERIENCE/NUGET_XMLDOC_MODE.
@@ -58,9 +59,9 @@ jobs:
 
     - name: Get current version
       run: |
-        dotnet tool install --global Nito.ProjProps
-        echo "NEWTAG=v$(projprops --name version --output-format SingleValueOnly --project src --project-search)"
-        echo "NEWTAG=v$(projprops --name version --output-format SingleValueOnly --project src --project-search)" >> $GITHUB_ENV
+        dotnet tool install --global Nito.ProjProps --version 2.0.0-pre01
+        echo "NEWTAG=v$(projprops --name version --project src)"
+        echo "NEWTAG=v$(projprops --name version --project src)" >> $GITHUB_ENV
 
     - name: Build
       run: |
