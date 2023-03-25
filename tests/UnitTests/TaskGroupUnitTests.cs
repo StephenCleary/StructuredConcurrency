@@ -34,8 +34,8 @@ public class TaskGroupUnitTests
         async Task UseTaskGroup()
         {
             await using var group = new TaskGroup();
-            task1 = group.AddAndTrack(async _ => { await task1Signal.Task; });
-            task2 = group.AddAndTrack(async _ => { await task2Signal.Task; });
+            task1 = group.Run(async _ => { await task1Signal.Task; return 0; });
+            task2 = group.Run(async _ => { await task2Signal.Task; return 0; });
         }
     }
 
@@ -58,8 +58,8 @@ public class TaskGroupUnitTests
         async Task UseTaskGroup()
         {
             await using var group = new TaskGroup();
-            task1 = group.AddAndTrack(async _ => { await task1Signal.Task; throw new InvalidOperationException("1"); });
-            task2 = group.AddAndTrack(async ct => { await Task.Delay(Timeout.InfiniteTimeSpan, ct); });
+            task1 = group.Run(async _ => { await task1Signal.Task; throw new InvalidOperationException("1"); return 0; });
+            task2 = group.Run(async ct => { await Task.Delay(Timeout.InfiniteTimeSpan, ct); return 0; });
         }
     }
 
@@ -88,8 +88,8 @@ public class TaskGroupUnitTests
         async Task UseTaskGroup()
         {
             await using var group = new TaskGroup();
-            task1 = group.AddAndTrack(async _ => { await task1Signal.Task; });
-            task2 = group.AddAndTrack(async _ => { await Task.Delay(Timeout.InfiniteTimeSpan, cts.Token); });
+            task1 = group.Run(async _ => { await task1Signal.Task; return 0; });
+            task2 = group.Run(async _ => { await Task.Delay(Timeout.InfiniteTimeSpan, cts.Token); return 0; });
         }
     }
 
