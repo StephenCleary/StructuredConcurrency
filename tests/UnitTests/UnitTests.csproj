@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StructuredConcurrency\Nito.StructuredConcurrency.csproj" />
+    <ProjectReference Include="..\..\src\Nito.StructuredConcurrency\Nito.StructuredConcurrency.csproj" />
   </ItemGroup>
 
 </Project>
