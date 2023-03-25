@@ -1,6 +1,7 @@
 ﻿using Nito.Disposables;
 using Nito.StructuredConcurrency.Internals;
 using System.Runtime.ExceptionServices;
+using System.Threading.Channels;
 
 namespace Nito.StructuredConcurrency;
 
@@ -108,6 +109,130 @@ public sealed class TaskGroup : IAsyncDisposable
                 throw;
             }
         };
+    }
+
+    /// <summary>
+    /// Executes work that produces a sequence.
+    /// This sequence cannot be consumed outside the scope of the task group.
+    /// Each item produced by this sequence is a resource owned by this task group.
+    /// </summary>
+    /// <typeparam name="T">The type of items produced.</typeparam>
+    /// <param name="work">The work to perform, producing a sequence of items.</param>
+    public IAsyncEnumerable<T> RunSequence<T>(Func<CancellationToken, IAsyncEnumerable<T>> work) => RunSequence(1, work);
+
+    /// <summary>
+    /// Executes work that produces a sequence.
+    /// This sequence cannot be consumed outside the scope of the task group.
+    /// Each item produced by this sequence is a resource owned by this task group.
+    /// </summary>
+    /// <typeparam name="T">The type of items produced.</typeparam>
+    /// <param name="capacity">The capacity of the channel containing the results of this work. Defaults to <c>1</c>.</param>
+    /// <param name="work">The work to perform, producing a sequence of items.</param>
+    public IAsyncEnumerable<T> RunSequence<T>(int capacity, Func<CancellationToken, IAsyncEnumerable<T>> work)
+    {
+        var channel = Channel.CreateBounded<T>(capacity);
+        Run(async ct =>
+        {
+            try
+            {
+                await foreach (var item in work(ct).WithCancellation(ct).ConfigureAwait(false))
+                {
+                    await AddResourceAsync(DisposeUtility.TryWrap(item)).ConfigureAwait(false);
+                    await channel.Writer.WriteAsync(item, ct).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                channel.Writer.Complete(ex);
+                throw;
+            }
+            finally
+            {
+                channel.Writer.Complete();
+            }
+        });
+        return channel.Reader.ReadAllAsync(CancellationTokenSource.Token);
+    }
+
+    /// <summary>
+    /// Starts a child task group.
+    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
+    /// </summary>
+    /// <param name="work">The work do be done, using the child task group. There is no need to place the child task group in an <c>await using</c> block.</param>
+    /// <returns>A task that completes when the child task group has completed. This task will be faulted if the child task group faults.</returns>
+#pragma warning disable CS1998
+    public void SpawnChildGroup(Action<TaskGroup> work) => SpawnChildGroup(async g => work(g));
+#pragma warning restore CS1998
+
+    /// <summary>
+    /// Starts a child task group.
+    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
+    /// </summary>
+    /// <param name="work">The work do be done, using the child task group. There is no need to place the child task group in an <c>await using</c> block.</param>
+    /// <returns>A task that completes when the child task group has completed. This task will be faulted if the child task group faults.</returns>
+    public void SpawnChildGroup(Func<TaskGroup, Task> work)
+    {
+        Run(async ct =>
+        {
+#pragma warning disable CA1031 // Do not catch general exception types
+            try
+            {
+                var childGroup = new TaskGroup(ct);
+                await using (childGroup.ConfigureAwait(false))
+                {
+                    await work(childGroup).ConfigureAwait(false);
+                }
+            }
+            catch // Including OperationCanceledException
+            {
+                // Child group exceptions do not propagate to the parent.
+            }
+#pragma warning restore CA1031 // Do not catch general exception types
+        });
+    }
+
+    /// <summary>
+    /// Starts a racing child task group.
+    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
+    /// </summary>
+    /// <typeparam name="TResult">The result type of the race work.</typeparam>
+    /// <param name="work">The work do be done, using the racing child task group. There is no need to place the racing child task group in an <c>await using</c> block.</param>
+    /// <returns>The result of the race. This task will be faulted if the all races fault.</returns>
+#pragma warning disable CS1998
+    public Task<TResult> RaceChildGroup<TResult>(Action<RacingTaskGroup<TResult>> work) => RaceChildGroup<TResult>(async (g) => work(g));
+#pragma warning restore CS1998
+
+    /// <summary>
+    /// Starts a racing child task group.
+    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
+    /// </summary>
+    /// <typeparam name="TResult">The result type of the race work.</typeparam>
+    /// <param name="work">The work do be done, using the racing child task group. There is no need to place the racing child task group in an <c>await using</c> block.</param>
+    /// <returns>The result of the race. This task will be faulted if the all races fault.</returns>
+    public Task<TResult> RaceChildGroup<TResult>(Func<RacingTaskGroup<TResult>, Task> work)
+    {
+        var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Run(async ct =>
+        {
+#pragma warning disable CA1031 // Do not catch general exception types
+            try
+            {
+                var raceGroup = new RacingTaskGroup<TResult>(ct);
+                await using (raceGroup.ConfigureAwait(false))
+                {
+                    await work(raceGroup).ConfigureAwait(false);
+                }
+
+                tcs.TrySetResult(raceGroup.GetResult());
+            }
+            catch (Exception ex) // Including OperationCanceledException
+            {
+                tcs.TrySetException(ex);
+                // Child group exceptions do not propagate to the parent.
+            }
+#pragma warning restore CA1031 // Do not catch general exception types
+        });
+        return tcs.Task;
     }
 
     /// <summary>

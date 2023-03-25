@@ -31,6 +31,9 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     /// <inheritdoc cref="TaskGroup.CancellationTokenSource"/>
     public CancellationTokenSource CancellationTaskSource => _group.CancellationTokenSource;
 
+    /// <inheritdoc cref="TaskGroup.AddResourceAsync"/>
+    public ValueTask AddResourceAsync(object? resource) => _group.AddResourceAsync(resource);
+
     /// <summary>
     /// Adds race work to this task group.
     /// Races cancel their task group on success instead of on fault.
@@ -54,6 +57,18 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
             }
         });
     }
+
+    /// <inheritdoc cref="TaskGroup.SpawnChildGroup(Action{TaskGroup})"/>
+    public void SpawnChildGroup(Action<TaskGroup> work) => _group.SpawnChildGroup(work);
+
+    /// <inheritdoc cref="TaskGroup.SpawnChildGroup(Func{TaskGroup, Task})"/>
+    public void SpawnChildGroup(Func<TaskGroup, Task> work) => _group.SpawnChildGroup(work);
+
+    /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Action{RacingTaskGroup{TResult}})"/>
+    public Task<T> RaceChildGroup<T>(Action<RacingTaskGroup<T>> work) => _group.RaceChildGroup(work);
+
+    /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Func{RacingTaskGroup{TResult}, Task})"/>
+    public Task<T> RaceChildGroup<T>(Func<RacingTaskGroup<T>, Task> work) => _group.RaceChildGroup(work);
 
     /// <summary>
     /// Asynchronously waits for all tasks in this task group to complete.
