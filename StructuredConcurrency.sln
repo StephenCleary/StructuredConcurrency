@@ -5,7 +5,7 @@ VisualStudioVersion = 17.5.33424.131
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTests", "UnitTests\UnitTests.csproj", "{DC023066-4834-4EB7-990C-A1BCE0777998}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StructuredConcurrency", "StructuredConcurrency\StructuredConcurrency.csproj", "{1FF1B56E-E791-443B-A9CA-897B1A691DED}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Nito.StructuredConcurrency", "StructuredConcurrency\Nito.StructuredConcurrency.csproj", "{1FF1B56E-E791-443B-A9CA-897B1A691DED}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Helpers", "Samples\Helpers\Helpers.csproj", "{2E4B3E42-6C8F-4F2C-A7FB-DE5567ED4F11}"
 EndProject
