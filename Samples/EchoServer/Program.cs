@@ -10,7 +10,7 @@ await using var serverGroup = new TaskGroup(applicationExit);
 var sockets = serverGroup.RunSequence(ct =>
 {
     return Impl();
-    async IAsyncEnumerable<Socket> Impl()
+    async IAsyncEnumerable<GracefulCloseSocket> Impl()
     {
         using var listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         listeningSocket.Bind(new IPEndPoint(IPAddress.Any, 5000));
@@ -28,7 +28,7 @@ var sockets = serverGroup.RunSequence(ct =>
             }
 
             if (socket != null)
-                yield return socket;
+                yield return new() { Socket = socket };
         }
     }
 });
@@ -46,8 +46,8 @@ serverGroup.Run(async token =>
                 var buffer = new byte[1024];
                 while (true)
                 {
-                    var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None, ct);
-                    await socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
+                    var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
+                    await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
                 }
             });
         });
