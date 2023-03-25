@@ -11,19 +11,16 @@ public sealed class HappyEyeballs
     {
         await using var group = new TaskGroup();
 
-        return await group.RaceChildGroup<IPAddress>(raceGroup =>
-        {
-            raceGroup.Run(async ct =>
-            {
-                var ipAddresses = await Dns.GetHostAddressesAsync(hostname, ct);
+        var ipAddresses = await group.Run(async ct => await Dns.GetHostAddressesAsync(hostname, ct));
 
-                foreach (var ipAddress in ipAddresses)
-                {
-                    // Attempt
-                    raceGroup.Race(raceResult, token => TryConnectAsync(ipAddress, token));
-                    await Task.Delay(TimeSpan.FromMilliseconds(300), ct);
-                }
-            });
+        return await group.RaceChildGroup<IPAddress>(async raceGroup =>
+        {
+            foreach (var ipAddress in ipAddresses)
+            {
+                // Attempt
+                raceGroup.Race(token => TryConnectAsync(ipAddress, token));
+                await Task.Delay(TimeSpan.FromMilliseconds(300), raceGroup.CancellationTaskSource.Token);
+            }
         });
 
         static async Task<IPAddress> TryConnectAsync(IPAddress ipAddress, CancellationToken token)

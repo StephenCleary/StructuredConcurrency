@@ -3,23 +3,33 @@
 namespace Nito.StructuredConcurrency;
 
 /// <summary>
-/// TODO
+/// A racing task group represents a list of tasks along with a <see cref="CancellationTokenSource"/>. Semantics:
+/// <list type="bullet">
+/// <item>When the racing task group is asynchronously disposed, it will asynchronously wait for all its child tasks to complete. I.e., there's an implicit `Task.WhenAll` at the end of the racing task group scope.</item>
+/// <item>Each child task is provided a <see cref="CancellationToken"/> from this racing task group.</item>
+/// <item>All exceptions from child tasks are ignored.</item>
+/// <item>If any child task completes successfully, the cancellation token is cancelled. If no child task completes successfully, the racing task group's asynchronous disposal will throw an <see cref="AggregateException"/> containing all of the child task exceptions.</item>
+/// <item>Disposing the racing task group does not cancel the racing task group; it just waits for the child tasks.</item>
+/// </list>
 /// </summary>
-/// <typeparam name="TResult"></typeparam>
+/// <typeparam name="TResult">The type of the value that is the result of the race.</typeparam>
 public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
 {
     private readonly TaskGroup _group;
     private readonly RaceResult<TResult> _raceResult;
 
     /// <summary>
-    /// TODO
+    /// Creates a racing task group, optionally linking it with an upstream <see cref="CancellationToken"/>.
     /// </summary>
-    /// <param name="cancellationToken"></param>
+    /// <param name="cancellationToken">The upstream cancellation token.</param>
     public RacingTaskGroup(CancellationToken cancellationToken = default)
     {
         _group = new TaskGroup(cancellationToken);
         _raceResult = new();
     }
+
+    /// <inheritdoc cref="TaskGroup.CancellationTokenSource"/>
+    public CancellationTokenSource CancellationTaskSource => _group.CancellationTokenSource;
 
     /// <summary>
     /// Adds race work to this task group.
@@ -46,14 +56,14 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     }
 
     /// <summary>
-    /// TODO
+    /// Asynchronously waits for all tasks in this task group to complete.
     /// </summary>
-    /// <returns></returns>
     public ValueTask DisposeAsync() => _group.DisposeAsync();
 
     /// <summary>
-    /// TODO
+    /// Retrieves the results of this race. This may only be called after this racing task group has been disposed.
+    /// If no racers participated at all, then this throws <see cref="OperationCanceledException"/>.
+    /// If all racers failed, then the returned task contains all of the racer exceptions, in timeline order.
     /// </summary>
-    /// <returns></returns>
     public TResult GetResult() => _raceResult.GetResult();
 }

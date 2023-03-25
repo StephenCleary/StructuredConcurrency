@@ -23,6 +23,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <summary>
     /// Creates a task group, optionally linking it to an upstream cancellation source.
     /// </summary>
+    /// <param name="cancellationToken">The upstream cancellation token.</param>
     public TaskGroup(CancellationToken cancellationToken = default)
     {
         CancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -110,7 +111,7 @@ public sealed class TaskGroup : IAsyncDisposable
     }
 
     /// <summary>
-    /// Asynchronously waits for all tasks in this task group to complete, disposes of any resources owned by the task group, and then raises any exceptions observed by tasks in this task group.
+    /// Asynchronously waits for all tasks in this task group to complete, disposes any resources owned by the task group, and then raises any exceptions observed by tasks in this task group.
     /// </summary>
     public async ValueTask DisposeAsync()
     {
