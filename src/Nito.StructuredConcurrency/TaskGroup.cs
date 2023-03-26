@@ -128,7 +128,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <typeparam name="T">The type of the result of the task.</typeparam>
     /// <param name="work">The first work task of the task group.</param>
     public Task<T> RaceChildAsync<T>(Func<RacingTaskGroup<T>, ValueTask> work) =>
-        Run(async _ => await RacingTaskGroup.RunAsync(work, CancellationTokenSource.Token).ConfigureAwait(false));
+        Run(async _ => await RacingTaskGroup<T>.RunAsync(work, CancellationTokenSource.Token).ConfigureAwait(false));
 
     /// <summary>
     /// Creates a child <see cref="RacingTaskGroup{T}"/> and runs the specified work as the first work task.
@@ -137,7 +137,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <param name="work">The first work task of the task group.</param>
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public Task<T> RaceChildAsync<T>(Action<RacingTaskGroup<T>> work) =>
-        Run(async _ => await RacingTaskGroup.RunAsync<T>(async g => work(g), CancellationTokenSource.Token).ConfigureAwait(false));
+        Run(async _ => await RacingTaskGroup<T>.RunAsync(async g => work(g), CancellationTokenSource.Token).ConfigureAwait(false));
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     /// <summary>
