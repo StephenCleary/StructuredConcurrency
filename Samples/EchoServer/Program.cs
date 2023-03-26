@@ -38,16 +38,24 @@ serverGroup.Run(async token =>
 {
     await foreach (var socket in sockets)
     {
-        serverGroup.SpawnChildGroup(async connectionGroup =>
+        serverGroup.Run(async parentToken =>
         {
-            await connectionGroup.AddResourceAsync(socket);
-            connectionGroup.Run(async ct =>
+            await using var group = new TaskGroup(parentToken);
+            await group.AddResourceAsync(socket);
+            group.Run(async ct =>
             {
-                var buffer = new byte[1024];
-                while (true)
+                try
                 {
-                    var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
-                    await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
+                    var buffer = new byte[1024];
+                    while (true)
+                    {
+                        var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
+                        await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
                 }
             });
         });

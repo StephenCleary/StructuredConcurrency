@@ -58,12 +58,6 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
         });
     }
 
-    /// <inheritdoc cref="TaskGroup.SpawnChildGroup(Action{TaskGroup})"/>
-    public void SpawnChildGroup(Action<TaskGroup> work) => _group.SpawnChildGroup(work);
-
-    /// <inheritdoc cref="TaskGroup.SpawnChildGroup(Func{TaskGroup, ValueTask})"/>
-    public void SpawnChildGroup(Func<TaskGroup, ValueTask> work) => _group.SpawnChildGroup(work);
-
     /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Action{RacingTaskGroup{TResult}})"/>
     public Task<T> RaceChildGroup<T>(Action<RacingTaskGroup<T>> work) => _group.RaceChildGroup(work);
 

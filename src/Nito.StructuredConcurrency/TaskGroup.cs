@@ -155,43 +155,6 @@ public sealed class TaskGroup : IAsyncDisposable
     }
 
     /// <summary>
-    /// Starts a child task group.
-    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
-    /// </summary>
-    /// <param name="work">The work do be done, using the child task group. There is no need to place the child task group in an <c>await using</c> block.</param>
-    /// <returns>A task that completes when the child task group has completed. This task will be faulted if the child task group faults.</returns>
-#pragma warning disable CS1998
-    public void SpawnChildGroup(Action<TaskGroup> work) => SpawnChildGroup(async g => work(g));
-#pragma warning restore CS1998
-
-    /// <summary>
-    /// Starts a child task group.
-    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
-    /// </summary>
-    /// <param name="work">The work do be done, using the child task group. There is no need to place the child task group in an <c>await using</c> block.</param>
-    /// <returns>A task that completes when the child task group has completed. This task will be faulted if the child task group faults.</returns>
-    public void SpawnChildGroup(Func<TaskGroup, ValueTask> work)
-    {
-        Run(async ct =>
-        {
-#pragma warning disable CA1031 // Do not catch general exception types
-            try
-            {
-                var childGroup = new TaskGroup(ct);
-                await using (childGroup.ConfigureAwait(false))
-                {
-                    await work(childGroup).ConfigureAwait(false);
-                }
-            }
-            catch // Including OperationCanceledException
-            {
-                // Child group exceptions do not propagate to the parent.
-            }
-#pragma warning restore CA1031 // Do not catch general exception types
-        });
-    }
-
-    /// <summary>
     /// Starts a racing child task group.
     /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
     /// </summary>
@@ -214,7 +177,6 @@ public sealed class TaskGroup : IAsyncDisposable
         var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         Run(async ct =>
         {
-#pragma warning disable CA1031 // Do not catch general exception types
             try
             {
                 var raceGroup = new RacingTaskGroup<TResult>(ct);
@@ -225,12 +187,15 @@ public sealed class TaskGroup : IAsyncDisposable
 
                 tcs.TrySetResult(raceGroup.GetResult());
             }
-            catch (Exception ex) // Including OperationCanceledException
+            catch (OperationCanceledException ex)
             {
                 tcs.TrySetException(ex);
-                // Child group exceptions do not propagate to the parent.
             }
-#pragma warning restore CA1031 // Do not catch general exception types
+            catch (Exception ex)
+            {
+                tcs.TrySetException(ex);
+                throw;
+            }
         });
         return tcs.Task;
     }
