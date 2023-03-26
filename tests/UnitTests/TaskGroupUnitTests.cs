@@ -1,3 +1,4 @@
+using Nito.Disposables;
 using Nito.StructuredConcurrency;
 
 namespace UnitTests;
@@ -97,5 +98,149 @@ public class TaskGroupUnitTests
     public async Task EmptyGroup_NoDeadlock()
     {
         await using var group = new TaskGroup();
+    }
+
+    [Fact]
+    public async Task Resource_DisposedAtEndOfTaskGroup()
+    {
+        int wasdisposed = 0;
+
+        await UseTaskGroup();
+        var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
+        Assert.Equal(1, wasdisposed);
+
+        async Task UseTaskGroup()
+        {
+            await using var group = new TaskGroup();
+            await group.AddResourceAsync(Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
+        }
+    }
+
+    [Fact]
+    public async Task Resource_ThrowsException_Ignored()
+    {
+        await UseTaskGroup();
+
+        async Task UseTaskGroup()
+        {
+            await using var group = new TaskGroup();
+            await group.AddResourceAsync(Disposable.Create(() => throw new InvalidOperationException("nope")));
+        }
+    }
+
+    [Fact]
+    public async Task ReturnValue_NotAResource()
+    {
+        int wasdisposed = 0;
+
+        await UseTaskGroup();
+        var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
+        Assert.Equal(0, wasdisposed);
+
+        async Task UseTaskGroup()
+        {
+            await using var group = new TaskGroup();
+            var resource = await group.Run(async ct => Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
+        }
+    }
+
+    [Fact]
+    public async Task SequenceValue_IsAResource()
+    {
+        int wasdisposed = 0;
+
+        await UseTaskGroup();
+        var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
+        Assert.Equal(1, wasdisposed);
+
+        async Task UseTaskGroup()
+        {
+            await using var group = new TaskGroup();
+            _ = group.RunSequence(ct =>
+            {
+                return Impl();
+                async IAsyncEnumerable<Disposable> Impl()
+                {
+                    yield return Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1));
+                }
+            });
+        }
+    }
+
+    [Fact]
+    public async Task FaultingSequence_CompletesSequenceWithFault()
+    {
+        int exceptionWasObserved = 0;
+
+        try { await UseTaskGroup(); } catch { }
+        var result = Interlocked.CompareExchange(ref exceptionWasObserved, 0, 0);
+        Assert.Equal(1, exceptionWasObserved);
+
+        async Task UseTaskGroup()
+        {
+            await using var group = new TaskGroup();
+            var sequence = group.RunSequence(ct =>
+            {
+                return Impl();
+                async IAsyncEnumerable<int> Impl()
+                {
+                    yield return 0;
+                    throw new InvalidOperationException();
+                }
+            });
+
+            try
+            {
+                await foreach (var item in sequence)
+                    ;
+            }
+            catch (InvalidOperationException)
+            {
+                Interlocked.Exchange(ref exceptionWasObserved, 1);
+            }
+            catch (OperationCanceledException)
+            {
+                Interlocked.Exchange(ref exceptionWasObserved, 2); // (should not happen)
+            }
+        }
+    }
+
+    [Fact]
+    public async Task CancelledSequence_CompletesSequenceWithCancellation()
+    {
+        int exceptionWasObserved = 0;
+
+        try { await UseTaskGroup(); } catch { }
+        var result = Interlocked.CompareExchange(ref exceptionWasObserved, 0, 0);
+        Assert.Equal(1, exceptionWasObserved);
+
+        async Task UseTaskGroup()
+        {
+            await using var group = new TaskGroup();
+            var sequence = group.RunSequence(ct =>
+            {
+                return Impl();
+                async IAsyncEnumerable<int> Impl()
+                {
+                    yield return 0;
+                    await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+                }
+            });
+
+            group.Run(ct =>
+            {
+                throw new InvalidOperationException();
+            });
+
+            try
+            {
+                await foreach (var item in sequence)
+                    ;
+            }
+            catch (OperationCanceledException)
+            {
+                Interlocked.Exchange(ref exceptionWasObserved, 1);
+            }
+        }
     }
 }

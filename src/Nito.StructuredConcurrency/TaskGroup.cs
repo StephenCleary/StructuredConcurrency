@@ -141,17 +141,17 @@ public sealed class TaskGroup : IAsyncDisposable
                     await channel.Writer.WriteAsync(item, ct).ConfigureAwait(false);
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex)
             {
-                channel.Writer.Complete(ex);
+                channel.Writer.TryComplete(ex);
                 throw;
             }
             finally
             {
-                channel.Writer.Complete();
+                channel.Writer.TryComplete();
             }
         });
-        return channel.Reader.ReadAllAsync(CancellationTokenSource.Token);
+        return channel.Reader.ReadAllAsync(CancellationToken.None);
     }
 
     /// <summary>
