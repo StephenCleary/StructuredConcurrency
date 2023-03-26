@@ -4,7 +4,7 @@ using System.ComponentModel;
 namespace Nito.StructuredConcurrency;
 
 /// <summary>
-/// A racing task group represents a list of tasks along with a <see cref="CancellationTokenSource"/>. Semantics:
+/// A racing task group represents a list of tasks along with a <see cref="System.Threading.CancellationTokenSource"/>. Semantics:
 /// <list type="bullet">
 /// <item>Each child task is provided a <see cref="CancellationToken"/> from this racing task group.</item>
 /// <item>All exceptions from child tasks are ignored.</item>
@@ -32,8 +32,11 @@ public sealed class RacingTaskGroup<TResult>
     /// </summary>
     public TaskGroup TaskGroup => _group;
 
+    /// <inheritdoc cref="TaskGroup.CancellationToken"/>
+    public CancellationToken CancellationToken => CancellationTokenSource.Token;
+
     /// <inheritdoc cref="TaskGroup.CancellationTokenSource"/>
-    public CancellationTokenSource CancellationTaskSource => _group.CancellationTokenSource;
+    public CancellationTokenSource CancellationTokenSource => _group.CancellationTokenSource;
 
     /// <inheritdoc cref="TaskGroup.AddResourceAsync"/>
     public ValueTask AddResourceAsync(object? resource) => _group.AddResourceAsync(resource);

@@ -9,7 +9,7 @@ using var clientSocket = new GracefulCloseSocket { Socket = new Socket(AddressFa
 
 var groupTask = TaskGroup.RunAsync(async group =>
 {
-    await clientSocket.Socket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5000), group.CancellationTokenSource.Token);
+    await clientSocket.Socket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5000), group.CancellationToken);
 
     group.Run(async ct =>
     {
