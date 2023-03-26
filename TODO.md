@@ -1,3 +1,6 @@
+- Re-evaluate the independence of child task groups.
+  - E.g., trio does not ever lose exceptions like that.
+  - Instead, they have a try/catch around their individual connection processing code in their server connections.
 - Finish HappyEyeballs
 - Write TCP/IP chat app for comparison.
   - Pipelines, etc.
