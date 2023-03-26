@@ -37,7 +37,7 @@ var serverGroupTask = TaskGroup.RunAsync(async serverGroup =>
     // echoers
     await foreach (var socket in sockets)
     {
-        serverGroup.SpawnAsync(async group =>
+        serverGroup.SpawnChildAsync(async group =>
         {
             await group.AddResourceAsync(socket);
             group.Run(async ct =>
