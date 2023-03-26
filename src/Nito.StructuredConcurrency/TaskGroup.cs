@@ -89,6 +89,40 @@ public sealed class TaskGroup : IAsyncDisposable
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     /// <summary>
+    /// Creates a child <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <typeparam name="T">The type of the result of the task.</typeparam>
+    /// <param name="work">The first work task of the task group.</param>
+    public Task<T> RunChildAsync<T>(Func<TaskGroup, ValueTask<T>> work) =>
+        Run(async _ => await RunAsync(work, CancellationTokenSource.Token).ConfigureAwait(false));
+
+    /// <summary>
+    /// Creates a child <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <typeparam name="T">The type of the result of the task.</typeparam>
+    /// <param name="work">The first work task of the task group.</param>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    public Task<T> RunChildAsync<T>(Func<TaskGroup, T> work) =>
+        Run(async _ => await RunAsync(async g => work(g), CancellationTokenSource.Token).ConfigureAwait(false));
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+
+    /// <summary>
+    /// Creates a child <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <param name="work">The first work task of the task group.</param>
+    public void RunChildAsync(Func<TaskGroup, ValueTask> work) =>
+        Run(async _ => await RunAsync(async g => { await work(g).ConfigureAwait(false); return 0; }, CancellationTokenSource.Token).ConfigureAwait(false));
+
+    /// <summary>
+    /// Creates a child <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <param name="work">The first work task of the task group.</param>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    public void RunChildAsync(Action<TaskGroup> work) =>
+        Run(async _ => await RunAsync(async g => { work(g); return 0; }, CancellationTokenSource.Token).ConfigureAwait(false));
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+
+    /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
     /// If <paramref name="work"/> throws an <see cref="OperationCanceledException"/>, it will be ignored by the task group.
     /// If <paramref name="work"/> throws any other exception, then this task group will be canceled.

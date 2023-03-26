@@ -37,29 +37,25 @@ var serverGroupTask = TaskGroup.RunAsync(async serverGroup =>
     // echoers
     await foreach (var socket in sockets)
     {
-        serverGroup.Run(async parentToken =>
+        serverGroup.RunChildAsync(async group =>
         {
-            // TODO: better API for child groups?
-            await TaskGroup.RunAsync(async group =>
+            await group.AddResourceAsync(socket);
+            group.Run(async ct =>
             {
-                await group.AddResourceAsync(socket);
-                group.Run(async ct =>
+                try
                 {
-                    try
+                    var buffer = new byte[1024];
+                    while (true)
                     {
-                        var buffer = new byte[1024];
-                        while (true)
-                        {
-                            var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
-                            await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
-                        }
+                        var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
+                        await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
                     }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex);
-                    }
-                });
-            }, parentToken);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            });
         });
     }
 }, applicationExit);
