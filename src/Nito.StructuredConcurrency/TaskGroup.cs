@@ -25,7 +25,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// Creates a task group, optionally linking it to an upstream cancellation source.
     /// </summary>
     /// <param name="cancellationToken">The upstream cancellation token.</param>
-    public TaskGroup(CancellationToken cancellationToken = default)
+    private TaskGroup(CancellationToken cancellationToken = default)
     {
         CancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _tasks = new();
@@ -46,6 +46,47 @@ public sealed class TaskGroup : IAsyncDisposable
 #pragma warning disable CA2000 // Dispose objects before losing scope
     public ValueTask AddResourceAsync(object? resource) => _resources.AddAsync(DisposeUtility.TryWrap(resource));
 #pragma warning restore CA2000 // Dispose objects before losing scope
+
+    /// <summary>
+    /// Creates a new <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <typeparam name="T">The type of the result of the task.</typeparam>
+    /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
+    /// <param name="work">The first work task of the task group.</param>
+    public static async Task<T> RunAsync<T>(Func<TaskGroup, ValueTask<T>> work, CancellationToken cancellationToken = default)
+    {
+        await using var group = new TaskGroup(cancellationToken);
+        return await group.Run(async _ => await work(group).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Creates a new <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <typeparam name="T">The type of the result of the task.</typeparam>
+    /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
+    /// <param name="work">The first work task of the task group.</param>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    public static Task<T> RunAsync<T>(Func<TaskGroup, T> work, CancellationToken cancellationToken = default) =>
+        RunAsync(async g => work(g), cancellationToken);
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+
+    /// <summary>
+    /// Creates a new <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
+    /// <param name="work">The first work task of the task group.</param>
+    public static Task RunAsync(Func<TaskGroup, ValueTask> work, CancellationToken cancellationToken = default) =>
+        RunAsync(async g => { await work(g).ConfigureAwait(false); return 0; }, cancellationToken);
+
+    /// <summary>
+    /// Creates a new <see cref="TaskGroup"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
+    /// <param name="work">The first work task of the task group.</param>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    public static Task RunAsync(Action<TaskGroup> work, CancellationToken cancellationToken = default) =>
+        RunAsync(async g => { work(g); return 0; }, cancellationToken);
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
@@ -154,6 +195,7 @@ public sealed class TaskGroup : IAsyncDisposable
         return channel.Reader.ReadAllAsync(CancellationToken.None);
     }
 
+#if NO
     /// <summary>
     /// Starts a racing child task group.
     /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
@@ -199,6 +241,7 @@ public sealed class TaskGroup : IAsyncDisposable
         });
         return tcs.Task;
     }
+#endif
 
     /// <summary>
     /// Asynchronously waits for all tasks in this task group to complete, disposes any resources owned by the task group, and then raises any exceptions observed by tasks in this task group.

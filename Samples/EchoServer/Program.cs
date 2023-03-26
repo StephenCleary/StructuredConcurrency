@@ -4,62 +4,66 @@ using System.Net;
 using System.Net.Sockets;
 
 var applicationExit = ConsoleEx.HookCtrlCCancellation();
-await using var serverGroup = new TaskGroup(applicationExit);
 
-// listener
-var sockets = serverGroup.RunSequence(ct =>
+var serverGroupTask = TaskGroup.RunAsync(async serverGroup =>
 {
-    return Impl();
-    async IAsyncEnumerable<GracefulCloseSocket> Impl()
+    // listener
+    var sockets = serverGroup.RunSequence(ct =>
     {
-        using var listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        listeningSocket.Bind(new IPEndPoint(IPAddress.Any, 5000));
-        listeningSocket.Listen();
-        while (true)
+        return Impl();
+        async IAsyncEnumerable<GracefulCloseSocket> Impl()
         {
-            Socket? socket = null;
-            try
+            using var listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            listeningSocket.Bind(new IPEndPoint(IPAddress.Any, 5000));
+            listeningSocket.Listen();
+            while (true)
             {
-                socket = await listeningSocket.AcceptAsync(ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Ignore accept failures.
-            }
+                Socket? socket = null;
+                try
+                {
+                    socket = await listeningSocket.AcceptAsync(ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Ignore accept failures.
+                }
 
-            if (socket != null)
-                yield return new() { Socket = socket };
+                if (socket != null)
+                    yield return new() { Socket = socket };
+            }
         }
-    }
-});
+    });
 
-// echoers
-serverGroup.Run(async token =>
-{
+    // echoers
     await foreach (var socket in sockets)
     {
         serverGroup.Run(async parentToken =>
         {
-            await using var group = new TaskGroup(parentToken);
-            await group.AddResourceAsync(socket);
-            group.Run(async ct =>
+            // TODO: better API for child groups?
+            await TaskGroup.RunAsync(async group =>
             {
-                try
+                await group.AddResourceAsync(socket);
+                group.Run(async ct =>
                 {
-                    var buffer = new byte[1024];
-                    while (true)
+                    try
                     {
-                        var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
-                        await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
+                        var buffer = new byte[1024];
+                        while (true)
+                        {
+                            var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
+                            await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
+                        }
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex);
-                }
-            });
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                    }
+                });
+            }, parentToken);
         });
     }
-});
+}, applicationExit);
 
 Console.WriteLine("Listening on port 5000; press Ctrl-C to cancel...");
+
+await serverGroupTask;

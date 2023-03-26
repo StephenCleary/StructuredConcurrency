@@ -1,4 +1,5 @@
-﻿using Nito.StructuredConcurrency.Internals;
+﻿#if NO
+using Nito.StructuredConcurrency.Internals;
 
 namespace Nito.StructuredConcurrency;
 
@@ -76,3 +77,4 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     /// </summary>
     public TResult GetResult() => _raceResult.GetResult();
 }
+#endif

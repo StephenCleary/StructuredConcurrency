@@ -1,7 +1,4 @@
-using Newtonsoft.Json.Linq;
 using Nito.StructuredConcurrency;
-using System.Net;
-using System.Net.Sockets;
 using System.Threading.Channels;
 
 namespace UnitTests;
@@ -11,45 +8,49 @@ public class Usage
     [Fact]
     public async Task ImplicitWhenAll()
     {
-        await using var group = new TaskGroup();
-        group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(1), token));
-        group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(2), token));
-    } // implicit WhenAll
+        await TaskGroup.RunAsync(group =>
+        {
+            group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(1), token));
+            group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(2), token));
+        }); // implicit WhenAll
+    }
 
     [Fact]
     public async Task ProducerConsumer_Explicit()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await using var group = new TaskGroup();
-            var channel = Channel.CreateBounded<int>(10);
-
-            // Producer
-            group.Run(async token =>
+            await TaskGroup.RunAsync(group =>
             {
-                foreach (var value in Enumerable.Range(1, 1_000))
+                var channel = Channel.CreateBounded<int>(10);
+
+                // Producer
+                group.Run(async token =>
                 {
-                    token.ThrowIfCancellationRequested();
-                    await channel.Writer.WriteAsync(value, token);
-                }
+                    foreach (var value in Enumerable.Range(1, 1_000))
+                    {
+                        token.ThrowIfCancellationRequested();
+                        await channel.Writer.WriteAsync(value, token);
+                    }
 
-                channel.Writer.Complete();
-            });
+                    channel.Writer.Complete();
+                });
 
-            // Consumer
-            group.Run(async token =>
-            {
-                await foreach (var value in channel.Reader.ReadAllAsync(token))
+                // Consumer
+                group.Run(async token =>
                 {
-                    if (value == 13)
-                        throw new InvalidOperationException("Oh, no!");
-                }
-            });
+                    await foreach (var value in channel.Reader.ReadAllAsync(token))
+                    {
+                        if (value == 13)
+                            throw new InvalidOperationException("Oh, no!");
+                    }
+                });
 
-            // If either the producer or consumer encounters an exception,
-            // then both are cancelled, and the TaskGroup disposal waits for
-            // both of them to completely cancel before re-raising the original
-            // exception.
+                // If either the producer or consumer encounters an exception,
+                // then both are cancelled, and the TaskGroup disposal waits for
+                // both of them to completely cancel before re-raising the original
+                // exception.
+            });
         });
     }
 
@@ -58,40 +59,41 @@ public class Usage
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await using var group = new TaskGroup();
-
-            // Producer
-            var integers = group.RunSequence(token =>
+            await TaskGroup.RunAsync(group =>
             {
-                return Impl();
-
-                async IAsyncEnumerable<int> Impl()
+                // Producer
+                var integers = group.RunSequence(token =>
                 {
-                    foreach (var value in Enumerable.Range(1, 1_000))
+                    return Impl();
+
+                    async IAsyncEnumerable<int> Impl()
                     {
-                        // Pretend to do asynchronous work that observes cancellation
-                        await Task.Yield();
-                        token.ThrowIfCancellationRequested();
+                        foreach (var value in Enumerable.Range(1, 1_000))
+                        {
+                            // Pretend to do asynchronous work that observes cancellation
+                            await Task.Yield();
+                            token.ThrowIfCancellationRequested();
 
-                        yield return value;
+                            yield return value;
+                        }
                     }
-                }
-            });
+                });
 
-            // Consumer
-            group.Run(async token =>
-            {
-                await foreach (var value in integers.WithCancellation(token))
+                // Consumer
+                group.Run(async token =>
                 {
-                    if (value == 13)
-                        throw new InvalidOperationException("Oh, no!");
-                }
-            });
+                    await foreach (var value in integers.WithCancellation(token))
+                    {
+                        if (value == 13)
+                            throw new InvalidOperationException("Oh, no!");
+                    }
+                });
 
-            // If either the producer or consumer encounters an exception,
-            // then both are cancelled, and the TaskGroup disposal waits for
-            // both of them to completely cancel before re-raising the original
-            // exception.
+                // If either the producer or consumer encounters an exception,
+                // then both are cancelled, and the TaskGroup disposal waits for
+                // both of them to completely cancel before re-raising the original
+                // exception.
+            });
         });
     }
 
@@ -100,41 +102,43 @@ public class Usage
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await using var group = new TaskGroup();
-            var channel = Channel.CreateBounded<int>(10);
-
-            // Producer
-            group.Run(async token =>
+            await TaskGroup.RunAsync(group =>
             {
-                foreach (var value in Enumerable.Range(1, 1_000))
-                    await channel.Writer.WriteAsync(value, token);
-                channel.Writer.Complete();
-            });
+                var channel = Channel.CreateBounded<int>(10);
 
-            // Consumer
-            group.Run(async token =>
-            {
-                await foreach (var value in channel.Reader.ReadAllAsync(token))
+                // Producer
+                group.Run(async token =>
                 {
-                    if (value == 13)
-                        throw new InvalidOperationException("Oh, no!");
-                }
-            });
+                    foreach (var value in Enumerable.Range(1, 1_000))
+                        await channel.Writer.WriteAsync(value, token);
+                    channel.Writer.Complete();
+                });
 
-            // Consumer
-            group.Run(async token =>
-            {
-                await foreach (var value in channel.Reader.ReadAllAsync(token))
+                // Consumer
+                group.Run(async token =>
                 {
-                    if (value == 13)
-                        throw new InvalidOperationException("Oh, no!");
-                }
-            });
+                    await foreach (var value in channel.Reader.ReadAllAsync(token))
+                    {
+                        if (value == 13)
+                            throw new InvalidOperationException("Oh, no!");
+                    }
+                });
 
-            // If the producer or either consumer encounters an exception,
-            // then all are cancelled, and the TaskGroup disposal waits for
-            // all of them to completely cancel before re-raising the original
-            // exception.
+                // Consumer
+                group.Run(async token =>
+                {
+                    await foreach (var value in channel.Reader.ReadAllAsync(token))
+                    {
+                        if (value == 13)
+                            throw new InvalidOperationException("Oh, no!");
+                    }
+                });
+
+                // If the producer or either consumer encounters an exception,
+                // then all are cancelled, and the TaskGroup disposal waits for
+                // all of them to completely cancel before re-raising the original
+                // exception.
+            });
         });
     }
 
@@ -143,61 +147,58 @@ public class Usage
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await using var group = new TaskGroup();
-
-            // Producer
-            var channel = group.RunSequence(token =>
+            await TaskGroup.RunAsync(group =>
             {
-                return Impl();
-                async IAsyncEnumerable<int> Impl()
+                // Producer
+                var channel = group.RunSequence(token =>
                 {
-                    foreach (var value in Enumerable.Range(1, 1_000))
+                    return Impl();
+                    async IAsyncEnumerable<int> Impl()
                     {
-                        // Pretend to do asynchronous work that observes cancellation
-                        await Task.Yield();
-                        token.ThrowIfCancellationRequested();
+                        foreach (var value in Enumerable.Range(1, 1_000))
+                        {
+                            // Pretend to do asynchronous work that observes cancellation
+                            await Task.Yield();
+                            token.ThrowIfCancellationRequested();
 
-                        yield return value;
+                            yield return value;
+                        }
                     }
-                }
-            });
+                });
 
-            // Consumer
-            group.Run(async token =>
-            {
-                await foreach (var value in channel.WithCancellation(token))
+                // Consumer
+                group.Run(async token =>
                 {
-                    if (value == 13)
-                        throw new InvalidOperationException("Oh, no!");
-                }
-            });
+                    await foreach (var value in channel.WithCancellation(token))
+                    {
+                        if (value == 13)
+                            throw new InvalidOperationException("Oh, no!");
+                    }
+                });
 
-            // Consumer
-            group.Run(async token =>
-            {
-                await foreach (var value in channel.WithCancellation(token))
+                // Consumer
+                group.Run(async token =>
                 {
-                    if (value == 13)
-                        throw new InvalidOperationException("Oh, no!");
-                }
-            });
+                    await foreach (var value in channel.WithCancellation(token))
+                    {
+                        if (value == 13)
+                            throw new InvalidOperationException("Oh, no!");
+                    }
+                });
 
-            // If the producer or either consumer encounters an exception,
-            // then all are cancelled, and the TaskGroup disposal waits for
-            // all of them to completely cancel before re-raising the original
-            // exception.
+                // If the producer or either consumer encounters an exception,
+                // then all are cancelled, and the TaskGroup disposal waits for
+                // all of them to completely cancel before re-raising the original
+                // exception.
+            });
         });
     }
 
     [Fact]
     public async Task Pipeline()
     {
-        var resultTask = CalculateUsingTemporaryPipelineAsync();
-
-        async Task<double> CalculateUsingTemporaryPipelineAsync()
+        var result = await TaskGroup.RunAsync(async group =>
         {
-            await using var group = new TaskGroup();
-
             // All the channels and transformation methods are asynchronously
             // scoped to this "CalculateUsingTemporaryPipelineAsync" method.
             // If there are any exceptions in any of them, all of them are
@@ -250,20 +251,16 @@ public class Usage
                     result += value;
                 return result;
             });
-        }
+        });
 
-        Assert.Equal(750000, await resultTask);
+        Assert.Equal(750000, result);
     }
 
     [Fact]
     public async Task ExplicitCancel()
     {
-        var resultTask = CalculateUsingTemporaryPipelineAsync();
-
-        async Task<double> CalculateUsingTemporaryPipelineAsync()
+        var result = await TaskGroup.RunAsync(group =>
         {
-            await using var group = new TaskGroup();
-
             // All the channels and transformation methods are asynchronously
             // scoped to this "CalculateUsingTemporaryPipelineAsync" method.
             // If there are any exceptions in any of them, all of them are
@@ -312,9 +309,8 @@ public class Usage
             // Oh, hey, we don't need this pipeline after all.
             group.CancellationTokenSource.Cancel();
             return 42;
-        }
+        });
 
-        Assert.Equal(42, await resultTask);
+        Assert.Equal(42, result);
     }
 }
-

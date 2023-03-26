@@ -6,12 +6,11 @@ using System.Text;
 
 var applicationExit = ConsoleEx.HookCtrlCCancellation();
 using var clientSocket = new GracefulCloseSocket { Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) };
-await using var group = new TaskGroup(applicationExit);
 
-group.Run(async ct =>
+var groupTask = TaskGroup.RunAsync(async group =>
 {
-    await clientSocket.Socket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5000), ct);
-    
+    await clientSocket.Socket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5000), group.CancellationTokenSource.Token);
+
     group.Run(async ct =>
     {
         var buffer = new byte[1024];
@@ -35,6 +34,8 @@ group.Run(async ct =>
             await clientSocket.Socket.SendAsync(buffer, SocketFlags.None, ct);
         }
     });
-});
+}, applicationExit);
 
 Console.WriteLine("Press Ctrl-C to cancel...");
+
+await groupTask;

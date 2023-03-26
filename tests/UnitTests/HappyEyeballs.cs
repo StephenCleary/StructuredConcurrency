@@ -1,4 +1,5 @@
-﻿using Nito.StructuredConcurrency;
+﻿#if NO
+using Nito.StructuredConcurrency;
 using System.Net;
 
 namespace UnitTests;
@@ -30,3 +31,4 @@ public sealed class HappyEyeballs
         }
     }
 }
+#endif
