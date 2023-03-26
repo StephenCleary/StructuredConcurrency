@@ -1,5 +1,4 @@
-﻿#if NO
-using Nito.StructuredConcurrency;
+﻿using Nito.StructuredConcurrency;
 using System.Net;
 
 namespace UnitTests;
@@ -10,18 +9,18 @@ public sealed class HappyEyeballs
 {
     public async Task<IPAddress> ConnectAsync(string hostname)
     {
-        await using var group = new TaskGroup();
-
-        var ipAddresses = await group.Run(async ct => await Dns.GetHostAddressesAsync(hostname, ct));
-
-        return await group.RaceChildGroup<IPAddress>(async raceGroup =>
+        return await TaskGroup.RunAsync(async group =>
         {
-            foreach (var ipAddress in ipAddresses)
+            var ipAddresses = await Dns.GetHostAddressesAsync(hostname, group.CancellationTokenSource.Token);
+            return await group.RaceChildAsync<IPAddress>(async raceGroup =>
             {
-                // Attempt
-                raceGroup.Race(async token => await TryConnectAsync(ipAddress, token));
-                await Task.Delay(TimeSpan.FromMilliseconds(300), raceGroup.CancellationTaskSource.Token);
-            }
+                foreach (var ipAddress in ipAddresses)
+                {
+                    // Attempt
+                    raceGroup.Race(async token => await TryConnectAsync(ipAddress, token));
+                    await Task.Delay(TimeSpan.FromMilliseconds(300), raceGroup.CancellationTaskSource.Token);
+                }
+            });
         });
 
         static async Task<IPAddress> TryConnectAsync(IPAddress ipAddress, CancellationToken token)
@@ -31,4 +30,3 @@ public sealed class HappyEyeballs
         }
     }
 }
-#endif

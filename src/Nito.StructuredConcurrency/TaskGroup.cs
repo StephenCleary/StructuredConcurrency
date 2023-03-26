@@ -123,6 +123,24 @@ public sealed class TaskGroup : IAsyncDisposable
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     /// <summary>
+    /// Creates a child <see cref="RacingTaskGroup{T}"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <typeparam name="T">The type of the result of the task.</typeparam>
+    /// <param name="work">The first work task of the task group.</param>
+    public Task<T> RaceChildAsync<T>(Func<RacingTaskGroup<T>, ValueTask> work) =>
+        Run(async _ => await RacingTaskGroup.RunAsync(work, CancellationTokenSource.Token).ConfigureAwait(false));
+
+    /// <summary>
+    /// Creates a child <see cref="RacingTaskGroup{T}"/> and runs the specified work as the first work task.
+    /// </summary>
+    /// <typeparam name="T">The type of the result of the task.</typeparam>
+    /// <param name="work">The first work task of the task group.</param>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    public Task<T> RaceChildAsync<T>(Action<RacingTaskGroup<T>> work) =>
+        Run(async _ => await RacingTaskGroup.RunAsync<T>(async g => work(g), CancellationTokenSource.Token).ConfigureAwait(false));
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+
+    /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
     /// If <paramref name="work"/> throws an <see cref="OperationCanceledException"/>, it will be ignored by the task group.
     /// If <paramref name="work"/> throws any other exception, then this task group will be canceled.
@@ -228,54 +246,6 @@ public sealed class TaskGroup : IAsyncDisposable
         });
         return channel.Reader.ReadAllAsync(CancellationToken.None);
     }
-
-#if NO
-    /// <summary>
-    /// Starts a racing child task group.
-    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
-    /// </summary>
-    /// <typeparam name="TResult">The result type of the race work.</typeparam>
-    /// <param name="work">The work do be done, using the racing child task group. There is no need to place the racing child task group in an <c>await using</c> block.</param>
-    /// <returns>The result of the race. This task will be faulted if the all races fault.</returns>
-#pragma warning disable CS1998
-    public Task<TResult> RaceChildGroup<TResult>(Action<RacingTaskGroup<TResult>> work) => RaceChildGroup<TResult>(async (g) => work(g));
-#pragma warning restore CS1998
-
-    /// <summary>
-    /// Starts a racing child task group.
-    /// Child task groups honor cancellation from their parent task group, but they do not cancel their parent.
-    /// </summary>
-    /// <typeparam name="TResult">The result type of the race work.</typeparam>
-    /// <param name="work">The work do be done, using the racing child task group. There is no need to place the racing child task group in an <c>await using</c> block.</param>
-    /// <returns>The result of the race. This task will be faulted if the all races fault.</returns>
-    public Task<TResult> RaceChildGroup<TResult>(Func<RacingTaskGroup<TResult>, ValueTask> work)
-    {
-        var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Run(async ct =>
-        {
-            try
-            {
-                var raceGroup = new RacingTaskGroup<TResult>(ct);
-                await using (raceGroup.ConfigureAwait(false))
-                {
-                    await work(raceGroup).ConfigureAwait(false);
-                }
-
-                tcs.TrySetResult(raceGroup.GetResult());
-            }
-            catch (OperationCanceledException ex)
-            {
-                tcs.TrySetException(ex);
-            }
-            catch (Exception ex)
-            {
-                tcs.TrySetException(ex);
-                throw;
-            }
-        });
-        return tcs.Task;
-    }
-#endif
 
     /// <summary>
     /// Asynchronously waits for all tasks in this task group to complete, disposes any resources owned by the task group, and then raises any exceptions observed by tasks in this task group.

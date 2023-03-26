@@ -1,80 +1,43 @@
-﻿#if NO
-using Nito.StructuredConcurrency.Internals;
+﻿using Nito.StructuredConcurrency.Internals;
 
 namespace Nito.StructuredConcurrency;
 
 /// <summary>
 /// A racing task group represents a list of tasks along with a <see cref="CancellationTokenSource"/>. Semantics:
 /// <list type="bullet">
-/// <item>When the racing task group is asynchronously disposed, it will asynchronously wait for all its child tasks to complete. I.e., there's an implicit `Task.WhenAll` at the end of the racing task group scope.</item>
 /// <item>Each child task is provided a <see cref="CancellationToken"/> from this racing task group.</item>
 /// <item>All exceptions from child tasks are ignored.</item>
 /// <item>If any child task completes successfully, the cancellation token is cancelled. If no child task completes successfully, the racing task group's asynchronous disposal will throw an <see cref="AggregateException"/> containing all of the child task exceptions.</item>
-/// <item>Disposing the racing task group does not cancel the racing task group; it just waits for the child tasks.</item>
 /// </list>
 /// </summary>
-/// <typeparam name="TResult">The type of the value that is the result of the race.</typeparam>
-public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
+public static class RacingTaskGroup
 {
-    private readonly TaskGroup _group;
-    private readonly RaceResult<TResult> _raceResult;
-
     /// <summary>
-    /// Creates a racing task group, optionally linking it with an upstream <see cref="CancellationToken"/>.
+    /// Creates a new <see cref="RacingTaskGroup{TResult}"/> and runs the specified work as the first work task.
     /// </summary>
-    /// <param name="cancellationToken">The upstream cancellation token.</param>
-    public RacingTaskGroup(CancellationToken cancellationToken = default)
+    /// <typeparam name="TResult">The type of the value that is the result of the race.</typeparam>
+    /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
+    /// <param name="work">The first work task of the task group.</param>
+    public static async Task<TResult> RunAsync<TResult>(Func<RacingTaskGroup<TResult>, ValueTask> work, CancellationToken cancellationToken = default)
     {
-        _group = new TaskGroup(cancellationToken);
-        _raceResult = new();
-    }
-
-    /// <inheritdoc cref="TaskGroup.CancellationTokenSource"/>
-    public CancellationTokenSource CancellationTaskSource => _group.CancellationTokenSource;
-
-    /// <inheritdoc cref="TaskGroup.AddResourceAsync"/>
-    public ValueTask AddResourceAsync(object? resource) => _group.AddResourceAsync(resource);
-
-    /// <summary>
-    /// Adds race work to this task group.
-    /// Races cancel their task group on success instead of on fault.
-    /// Faulting races are ignored.
-    /// Results of successful races that do not "win" (i.e., are not the first result) are treated as resources and are immediately disposed.
-    /// </summary>
-    /// <param name="work">The race work to do.</param>
-    public void Race(Func<CancellationToken, ValueTask<TResult>> work)
-    {
-        _group.Run(async ct =>
+        var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var raceResult = new RaceResult<TResult>();
+        await TaskGroup.RunAsync(async group =>
         {
-            try
-            {
-                var result = await work(ct).ConfigureAwait(false);
-                await _raceResult.ReportResultAsync(result).ConfigureAwait(false);
-                _group.CancellationTokenSource.Cancel();
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _raceResult.ReportException(ex);
-            }
-        });
+            var raceGroup = new RacingTaskGroup<TResult>(group, raceResult);
+            await work(raceGroup).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
+        return raceResult.GetResult();
     }
 
-    /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Action{RacingTaskGroup{TResult}})"/>
-    public Task<T> RaceChildGroup<T>(Action<RacingTaskGroup<T>> work) => _group.RaceChildGroup(work);
-
-    /// <inheritdoc cref="TaskGroup.RaceChildGroup{TResult}(Func{RacingTaskGroup{TResult}, ValueTask})"/>
-    public Task<T> RaceChildGroup<T>(Func<RacingTaskGroup<T>, ValueTask> work) => _group.RaceChildGroup(work);
-
     /// <summary>
-    /// Asynchronously waits for all tasks in this task group to complete.
+    /// Creates a new <see cref="RacingTaskGroup{TResult}"/> and runs the specified work as the first work task.
     /// </summary>
-    public ValueTask DisposeAsync() => _group.DisposeAsync();
-
-    /// <summary>
-    /// Retrieves the results of this race. This may only be called after this racing task group has been disposed.
-    /// If no racers participated at all, then this throws <see cref="OperationCanceledException"/>.
-    /// If all racers failed, then the returned task contains all of the racer exceptions, in timeline order.
-    /// </summary>
-    public TResult GetResult() => _raceResult.GetResult();
+    /// <typeparam name="TResult">The type of the value that is the result of the race.</typeparam>
+    /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
+    /// <param name="work">The first work task of the task group.</param>
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    public static Task<TResult> RunAsync<TResult>(Action<RacingTaskGroup<TResult>> work, CancellationToken cancellationToken = default) =>
+        RunAsync<TResult>(async g => work(g), cancellationToken);
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 }
-#endif
