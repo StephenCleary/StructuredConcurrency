@@ -64,7 +64,7 @@ public sealed class TaskGroup : IAsyncDisposable
     public static async Task<T> RunAsync<T>(Func<TaskGroup, ValueTask<T>> work, CancellationToken cancellationToken = default)
     {
         await using var group = new TaskGroup(cancellationToken);
-        return await group.Run(async _ => await work(group).ConfigureAwait(false)).ConfigureAwait(false);
+        return await group.ExecuteAsync(async _ => await work(group).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -102,7 +102,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <typeparam name="T">The type of the result of the task.</typeparam>
     /// <param name="work">The first work task of the task group.</param>
     public Task<T> SpawnChildAsync<T>(Func<TaskGroup, ValueTask<T>> work) =>
-        Run(async _ => await RunAsync(work, CancellationToken).ConfigureAwait(false));
+        ExecuteAsync(async _ => await RunAsync(work, CancellationToken).ConfigureAwait(false));
 
     /// <summary>
     /// Creates a child <see cref="TaskGroup"/> and runs the specified work as the first work task.
@@ -111,7 +111,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <param name="work">The first work task of the task group.</param>
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public Task<T> SpawnChildAsync<T>(Func<TaskGroup, T> work) =>
-        Run(async _ => await RunAsync(async g => work(g), CancellationToken).ConfigureAwait(false));
+        ExecuteAsync(async _ => await RunAsync(async g => work(g), CancellationToken).ConfigureAwait(false));
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     /// <summary>
@@ -119,7 +119,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// </summary>
     /// <param name="work">The first work task of the task group.</param>
     public void SpawnChildAsync(Func<TaskGroup, ValueTask> work) =>
-        Run(async _ => await RunAsync(async g => { await work(g).ConfigureAwait(false); return 0; }, CancellationToken).ConfigureAwait(false));
+        ExecuteAsync(async _ => await RunAsync(async g => { await work(g).ConfigureAwait(false); return 0; }, CancellationToken).ConfigureAwait(false));
 
     /// <summary>
     /// Creates a child <see cref="TaskGroup"/> and runs the specified work as the first work task.
@@ -127,7 +127,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <param name="work">The first work task of the task group.</param>
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public void SpawnChildAsync(Action<TaskGroup> work) =>
-        Run(async _ => await RunAsync(async g => { work(g); return 0; }, CancellationToken).ConfigureAwait(false));
+        ExecuteAsync(async _ => await RunAsync(async g => { work(g); return 0; }, CancellationToken).ConfigureAwait(false));
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     /// <summary>
@@ -136,7 +136,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <typeparam name="T">The type of the result of the task.</typeparam>
     /// <param name="work">The first work task of the task group.</param>
     public Task<T> SpawnRaceAsync<T>(Func<RacingTaskGroup<T>, ValueTask> work) =>
-        Run(async _ => await RacingTaskGroup<T>.RunAsync(work, CancellationToken).ConfigureAwait(false));
+        ExecuteAsync(async _ => await RacingTaskGroup<T>.RunAsync(work, CancellationToken).ConfigureAwait(false));
 
     /// <summary>
     /// Creates a child <see cref="RacingTaskGroup{T}"/> and runs the specified work as the first work task.
@@ -145,7 +145,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// <param name="work">The first work task of the task group.</param>
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public Task<T> SpawnRaceAsync<T>(Action<RacingTaskGroup<T>> work) =>
-        Run(async _ => await RacingTaskGroup<T>.RunAsync(async g => work(g), CancellationToken).ConfigureAwait(false));
+        ExecuteAsync(async _ => await RacingTaskGroup<T>.RunAsync(async g => work(g), CancellationToken).ConfigureAwait(false));
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     /// <summary>
@@ -156,7 +156,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public void Run(Func<CancellationToken, ValueTask> work) => _ = Run(async ct => { await work(ct).ConfigureAwait(false); return 0; });
+    public void Run(Func<CancellationToken, ValueTask> work) => _ = ExecuteAsync(async ct => { await work(ct).ConfigureAwait(false); return 0; });
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
@@ -166,7 +166,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public Task<T> Run<T>(Func<CancellationToken, ValueTask<T>> work)
+    public Task<T> ExecuteAsync<T>(Func<CancellationToken, ValueTask<T>> work)
     {
         var startSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var result = CancelOnException(CancellationTokenSource, DelayStart(startSignal.Task, work))(CancellationToken);

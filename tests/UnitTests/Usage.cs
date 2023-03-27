@@ -244,7 +244,7 @@ public class Usage
                 }
             });
 
-            return await group.Run(async token =>
+            return await group.ExecuteAsync(async token =>
             {
                 var result = 0.0;
                 await foreach (var value in channel3.WithCancellation(token))

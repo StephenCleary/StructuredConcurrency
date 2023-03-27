@@ -17,8 +17,8 @@ public class TaskGroupUnitTests
 
         var groupTask = TaskGroup.RunAsync(group =>
         {
-            task1 = group.Run(async _ => { await task1Signal.Task; return 0; });
-            task2 = group.Run(async _ => { await task2Signal.Task; return 0; });
+            task1 = group.ExecuteAsync(async _ => { await task1Signal.Task; return 0; });
+            task2 = group.ExecuteAsync(async _ => { await task2Signal.Task; return 0; });
             readySignal.TrySetResult();
         });
 
@@ -52,8 +52,8 @@ public class TaskGroupUnitTests
 
         var groupTask = TaskGroup.RunAsync(group =>
         {
-            task1 = group.Run(async _ => { await task1Signal.Task; throw new InvalidOperationException("1"); return 0; });
-            task2 = group.Run(async ct => { await Task.Delay(Timeout.InfiniteTimeSpan, ct); return 0; });
+            task1 = group.ExecuteAsync(async _ => { await task1Signal.Task; throw new InvalidOperationException("1"); return 0; });
+            task2 = group.ExecuteAsync(async ct => { await Task.Delay(Timeout.InfiniteTimeSpan, ct); return 0; });
             readySignal.TrySetResult();
         });
 
@@ -77,8 +77,8 @@ public class TaskGroupUnitTests
 
         var groupTask = TaskGroup.RunAsync(group =>
         {
-            task1 = group.Run(async _ => { await task1Signal.Task; return 0; });
-            task2 = group.Run(async _ => { await Task.Delay(Timeout.InfiniteTimeSpan, cts.Token); return 0; });
+            task1 = group.ExecuteAsync(async _ => { await task1Signal.Task; return 0; });
+            task2 = group.ExecuteAsync(async _ => { await Task.Delay(Timeout.InfiniteTimeSpan, cts.Token); return 0; });
             readySignal.TrySetResult();
         });
 
@@ -130,7 +130,7 @@ public class TaskGroupUnitTests
 
         await TaskGroup.RunAsync(async group =>
         {
-            var resource = await group.Run(async ct => Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
+            var resource = await group.ExecuteAsync(async ct => Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
         });
         var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
         Assert.Equal(0, wasdisposed);
