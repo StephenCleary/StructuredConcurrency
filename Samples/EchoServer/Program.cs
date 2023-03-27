@@ -51,7 +51,7 @@ var serverGroupTask = TaskGroup.RunAsync(async serverGroup =>
                         await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     Console.WriteLine(ex);
                 }
@@ -62,4 +62,4 @@ var serverGroupTask = TaskGroup.RunAsync(async serverGroup =>
 
 Console.WriteLine("Listening on port 5000; press Ctrl-C to cancel...");
 
-await serverGroupTask;
+await serverGroupTask.IgnoreCancellation();

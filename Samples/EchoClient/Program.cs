@@ -38,4 +38,4 @@ var groupTask = TaskGroup.RunAsync(async group =>
 
 Console.WriteLine("Press Ctrl-C to cancel...");
 
-await groupTask;
+await groupTask.IgnoreCancellation();

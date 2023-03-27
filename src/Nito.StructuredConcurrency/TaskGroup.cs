@@ -52,6 +52,9 @@ public sealed class TaskGroup : IAsyncDisposable
     public ValueTask AddResourceAsync(object? resource) => _resources.AddAsync(DisposeUtility.TryWrap(resource));
 #pragma warning restore CA2000 // Dispose objects before losing scope
 
+    // TODO: Want to ignore task group cancellation at the top level (static RunAsync),
+    // but Task<T> can't ignore them cleanly, and I don't want different semantics between Task and Task<T>.
+
     /// <summary>
     /// Creates a new <see cref="TaskGroup"/> and runs the specified work as the first work task.
     /// </summary>
