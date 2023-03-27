@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
+using Nito.StructuredConcurrency.Internals;
 
-namespace Nito.StructuredConcurrency.Internals;
+namespace Nito.StructuredConcurrency.Advanced;
 
 /// <summary>
 /// This type allows multiple asynchronous methods to race to provide a result.

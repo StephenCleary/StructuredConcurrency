@@ -25,7 +25,7 @@ public sealed class TaskGroup : IAsyncDisposable
     /// Creates a task group, optionally linking it to an upstream cancellation source.
     /// </summary>
     /// <param name="cancellationToken">The upstream cancellation token.</param>
-    private TaskGroup(CancellationToken cancellationToken = default)
+    internal TaskGroup(CancellationToken cancellationToken = default)
     {
         CancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _tasks = new();

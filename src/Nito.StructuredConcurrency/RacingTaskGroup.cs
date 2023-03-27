@@ -1,5 +1,4 @@
-﻿using Nito.StructuredConcurrency.Internals;
-using System.ComponentModel;
+﻿using Nito.StructuredConcurrency.Advanced;
 
 namespace Nito.StructuredConcurrency;
 
@@ -20,8 +19,7 @@ public sealed class RacingTaskGroup<TResult>
     /// <summary>
     /// Creates a racing task group.
     /// </summary>
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public RacingTaskGroup(TaskGroup group, RaceResult<TResult> raceResult)
+    internal RacingTaskGroup(TaskGroup group, RaceResult<TResult> raceResult)
     {
         _group = group;
         _raceResult = raceResult;
