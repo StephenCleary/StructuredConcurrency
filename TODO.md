@@ -280,3 +280,12 @@ catch
   /* end-user code also goes here, and may propagate the exception or do something completely different with it */
 }
 although, really, propagating exceptions is almost never useful. Child groups would always do something else with it instead.
+
+Spawn(go => try { await go(); } catch { Console.WriteLine(ex); }, async childGroup => { ... });
+or:
+Work(_ => try { await group.SpawnAsync(async g => { ... }); } catch { Console.WriteLine(ex); });
+or (with a new kind of "child controller" type with an API more similar to the top-level API):
+Spawn(c => try { await c.RunAsync(async g => { ... }); } catch { Console.WriteLine(ex); }); // work semantics
+SpawnAsync(c => try { return await c.RaceAsync(async g => { ... }); } catch { Console.WriteLine(ex); }); // runasync semantics
+but if you *always* want a try/catch *anyway*, then really, this meh-seeming API may be best:
+Spawn(async g => { ... }, async ex => Console.WriteLine(ex));
