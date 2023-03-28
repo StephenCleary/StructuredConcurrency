@@ -289,3 +289,31 @@ Spawn(c => try { await c.RunAsync(async g => { ... }); } catch { Console.WriteLi
 SpawnAsync(c => try { return await c.RaceAsync(async g => { ... }); } catch { Console.WriteLine(ex); }); // runasync semantics
 but if you *always* want a try/catch *anyway*, then really, this meh-seeming API may be best:
 Spawn(async g => { ... }, async ex => Console.WriteLine(ex));
+
+Or: what if child groups just use the top-level group API inside a work delegate?
+Work(ct => await TaskGroup.RunAsync(async g => { ... }, ct));
+Work(ct => try { await TaskGroup.RunAsync(async g => { ... }, ct); } catch { Console.WriteLine(ex); } );
+"child groups" are no longer a special thing at all!
+
+- Add work to the task group:
+  void Work(Func<CancellationToken, ValueTask>); // cancellation is ignored
+  Task<T> WorkAsync(Func<CancellationToken, ValueTask<T>>) // cancellation is ignored by group but cancels returned task
+  IAsyncEnumerable<T> WorkSequence(Func<CancellationToken, IAsyncEnumerable<T>>) // cancellation is ignored by group but cancels returned sequence
+- Races:
+  void Race(Func<CancellationToken, ValueTask<T>>); // cancellation is ignored
+- Top-level work: (require explicit CancellationToken)
+  Task RunAsync(Func<TaskGroup, ValueTask>); // cancellation cancels returned task
+  Task<T> RunAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+  Task<T> RaceAsync(Func<RacingTaskGroup<T>, ValueTask); // cancellation cancels returned task
+
+Use Run for instance methods:
+- Add work to the task group:
+  void Run(Func<CancellationToken, ValueTask>); // cancellation is ignored
+  Task<T> RunAsync(Func<CancellationToken, ValueTask<T>>) // cancellation is ignored by group but cancels returned task
+  IAsyncEnumerable<T> RunSequence(Func<CancellationToken, IAsyncEnumerable<T>>) // cancellation is ignored by group but cancels returned sequence
+- Races:
+  void Race(Func<CancellationToken, ValueTask<T>>); // cancellation is ignored
+- Top-level work: (require explicit CancellationToken)
+  Task RunGroupAsync(Func<TaskGroup, ValueTask>); // cancellation cancels returned task
+  Task<T> RunGroupAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+  Task<T> RaceGroupAsync(Func<RacingTaskGroup<T>, ValueTask); // cancellation cancels returned task
