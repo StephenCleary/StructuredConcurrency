@@ -5,7 +5,7 @@ using System.Net.Sockets;
 
 var applicationExit = ConsoleEx.HookCtrlCCancellation();
 
-var serverGroupTask = TaskGroup.RunAsync(async serverGroup =>
+var serverGroupTask = TaskGroup.RunGroupAsync(async serverGroup =>
 {
     // listener
     var sockets = serverGroup.RunSequence(ct =>
@@ -37,25 +37,25 @@ var serverGroupTask = TaskGroup.RunAsync(async serverGroup =>
     // echoers
     await foreach (var socket in sockets)
     {
-        serverGroup.SpawnChildAsync(async group =>
+        serverGroup.Run(async ct =>
         {
-            await group.AddResourceAsync(socket);
-            group.Run(async ct =>
+            try
             {
-                try
+                await TaskGroup.RunGroupAsync(async group =>
                 {
+                    await group.AddResourceAsync(socket);
                     var buffer = new byte[1024];
                     while (true)
                     {
                         var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
                         await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
                     }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    Console.WriteLine(ex);
-                }
-            });
+                }, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Console.WriteLine(ex);
+            }
         });
     }
 }, applicationExit);

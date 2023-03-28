@@ -69,12 +69,12 @@ public sealed class RacingTaskGroup<TResult>
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first work task of the task group.</param>
 #pragma warning disable CA1000 // Do not declare static members on generic types
-    public static async Task<TResult> RunAsync(Func<RacingTaskGroup<TResult>, ValueTask> work, CancellationToken cancellationToken = default)
+    public static async Task<TResult> RunGroupAsync(Func<RacingTaskGroup<TResult>, ValueTask> work, CancellationToken cancellationToken = default)
 #pragma warning restore CA1000 // Do not declare static members on generic types
     {
         var tcs = new TaskCompletionSource<TResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var raceResult = new RaceResult<TResult>();
-        await TaskGroup.RunAsync(async group =>
+        await TaskGroup.RunGroupAsync(async group =>
         {
             var raceGroup = new RacingTaskGroup<TResult>(group, raceResult);
             await work(raceGroup).ConfigureAwait(false);
@@ -89,8 +89,8 @@ public sealed class RacingTaskGroup<TResult>
     /// <param name="work">The first work task of the task group.</param>
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
 #pragma warning disable CA1000 // Do not declare static members on generic types
-    public static Task<TResult> RunAsync(Action<RacingTaskGroup<TResult>> work, CancellationToken cancellationToken = default) =>
-        RunAsync(async g => work(g), cancellationToken);
+    public static Task<TResult> RunGroupAsync(Action<RacingTaskGroup<TResult>> work, CancellationToken cancellationToken = default) =>
+        RunGroupAsync(async g => work(g), cancellationToken);
 #pragma warning restore CA1000 // Do not declare static members on generic types
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 

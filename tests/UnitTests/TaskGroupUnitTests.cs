@@ -15,12 +15,12 @@ public class TaskGroupUnitTests
         Task? task1 = null;
         Task? task2 = null;
 
-        var groupTask = TaskGroup.RunAsync(group =>
+        var groupTask = TaskGroup.RunGroupAsync(group =>
         {
-            task1 = group.ExecuteAsync(async _ => { await task1Signal.Task; return 0; });
-            task2 = group.ExecuteAsync(async _ => { await task2Signal.Task; return 0; });
+            task1 = group.RunAsync(async _ => { await task1Signal.Task; return 0; });
+            task2 = group.RunAsync(async _ => { await task2Signal.Task; return 0; });
             readySignal.TrySetResult();
-        });
+        }, default);
 
         await readySignal.Task;
 
@@ -50,12 +50,12 @@ public class TaskGroupUnitTests
         Task? task1 = null;
         Task? task2 = null;
 
-        var groupTask = TaskGroup.RunAsync(group =>
+        var groupTask = TaskGroup.RunGroupAsync(group =>
         {
-            task1 = group.ExecuteAsync(async _ => { await task1Signal.Task; throw new InvalidOperationException("1"); return 0; });
-            task2 = group.ExecuteAsync(async ct => { await Task.Delay(Timeout.InfiniteTimeSpan, ct); return 0; });
+            task1 = group.RunAsync(async _ => { await task1Signal.Task; throw new InvalidOperationException("1"); return 0; });
+            task2 = group.RunAsync(async ct => { await Task.Delay(Timeout.InfiniteTimeSpan, ct); return 0; });
             readySignal.TrySetResult();
-        });
+        }, default);
 
         await readySignal.Task;
         task1Signal.TrySetResult();
@@ -75,12 +75,12 @@ public class TaskGroupUnitTests
         Task? task1 = null;
         Task? task2 = null;
 
-        var groupTask = TaskGroup.RunAsync(group =>
+        var groupTask = TaskGroup.RunGroupAsync(group =>
         {
-            task1 = group.ExecuteAsync(async _ => { await task1Signal.Task; return 0; });
-            task2 = group.ExecuteAsync(async _ => { await Task.Delay(Timeout.InfiniteTimeSpan, cts.Token); return 0; });
+            task1 = group.RunAsync(async _ => { await task1Signal.Task; return 0; });
+            task2 = group.RunAsync(async _ => { await Task.Delay(Timeout.InfiniteTimeSpan, cts.Token); return 0; });
             readySignal.TrySetResult();
-        });
+        }, default);
 
         await readySignal.Task;
         task1Signal.TrySetResult();
@@ -98,7 +98,7 @@ public class TaskGroupUnitTests
     [Fact]
     public async Task EmptyGroup_NoDeadlock()
     {
-        await TaskGroup.RunAsync(group => { });
+        await TaskGroup.RunGroupAsync(group => { }, default);
     }
 
     [Fact]
@@ -106,10 +106,10 @@ public class TaskGroupUnitTests
     {
         int wasdisposed = 0;
 
-        await TaskGroup.RunAsync(async group =>
+        await TaskGroup.RunGroupAsync(async group =>
         {
             await group.AddResourceAsync(Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
-        });
+        }, default);
         var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
         Assert.Equal(1, wasdisposed);
     }
@@ -117,10 +117,10 @@ public class TaskGroupUnitTests
     [Fact]
     public async Task Resource_ThrowsException_Ignored()
     {
-        await TaskGroup.RunAsync(async group =>
+        await TaskGroup.RunGroupAsync(async group =>
         {
             await group.AddResourceAsync(Disposable.Create(() => throw new InvalidOperationException("nope")));
-        });
+        }, default);
     }
 
     [Fact]
@@ -128,10 +128,10 @@ public class TaskGroupUnitTests
     {
         int wasdisposed = 0;
 
-        await TaskGroup.RunAsync(async group =>
+        await TaskGroup.RunGroupAsync(async group =>
         {
-            var resource = await group.ExecuteAsync(async ct => Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
-        });
+            var resource = await group.RunAsync(async ct => Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
+        }, default);
         var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
         Assert.Equal(0, wasdisposed);
     }
@@ -141,7 +141,7 @@ public class TaskGroupUnitTests
     {
         int wasdisposed = 0;
 
-        await TaskGroup.RunAsync(group =>
+        await TaskGroup.RunGroupAsync(group =>
         {
             _ = group.RunSequence(ct =>
             {
@@ -151,7 +151,7 @@ public class TaskGroupUnitTests
                     yield return Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1));
                 }
             });
-        });
+        }, default);
         var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
         Assert.Equal(1, wasdisposed);
     }
@@ -163,7 +163,7 @@ public class TaskGroupUnitTests
 
         try
         {
-            await TaskGroup.RunAsync(async group =>
+            await TaskGroup.RunGroupAsync(async group =>
             {
                 var sequence = group.RunSequence(ct =>
                 {
@@ -188,7 +188,7 @@ public class TaskGroupUnitTests
                 {
                     Interlocked.Exchange(ref exceptionWasObserved, 2); // (should not happen)
                 }
-            });
+            }, default);
         }
         catch
         {
@@ -205,7 +205,7 @@ public class TaskGroupUnitTests
 
         try
         {
-            await TaskGroup.RunAsync(async group =>
+            await TaskGroup.RunGroupAsync(async group =>
             {
                 var sequence = group.RunSequence(ct =>
                 {
@@ -231,7 +231,7 @@ public class TaskGroupUnitTests
                 {
                     Interlocked.Exchange(ref exceptionWasObserved, 1);
                 }
-            });
+            }, default);
         }
         catch
         {

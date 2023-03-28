@@ -9,10 +9,10 @@ public sealed class HappyEyeballs
 {
     public async Task<IPAddress> ConnectAsync(string hostname)
     {
-        return await TaskGroup.RunAsync(async group =>
+        return await TaskGroup.RunGroupAsync(async group =>
         {
             var ipAddresses = await Dns.GetHostAddressesAsync(hostname, group.CancellationToken);
-            return await group.SpawnRaceAsync<IPAddress>(async raceGroup =>
+            return await RacingTaskGroup<IPAddress>.RunGroupAsync(async raceGroup =>
             {
                 foreach (var ipAddress in ipAddresses)
                 {
@@ -21,7 +21,7 @@ public sealed class HappyEyeballs
                     await Task.Delay(TimeSpan.FromMilliseconds(300), raceGroup.CancellationTokenSource.Token);
                 }
             });
-        });
+        }, default);
 
         static async Task<IPAddress> TryConnectAsync(IPAddress ipAddress, CancellationToken token)
         {
