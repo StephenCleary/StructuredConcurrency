@@ -12,7 +12,7 @@ public sealed class HappyEyeballs
         return await TaskGroup.RunGroupAsync(async group =>
         {
             var ipAddresses = await Dns.GetHostAddressesAsync(hostname, group.CancellationToken);
-            return await RacingTaskGroup<IPAddress>.RunGroupAsync(async raceGroup =>
+            return await TaskGroup.RaceGroupAsync<IPAddress>(async raceGroup =>
             {
                 foreach (var ipAddress in ipAddresses)
                 {
