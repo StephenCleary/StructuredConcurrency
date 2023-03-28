@@ -8,6 +8,7 @@
 
 - Do we actually need child task groups?
   - Do we need a way to ignore errors from child task groups?
+  - Or actually, a way to catch errors from child task groups and *optionally* pass them up.
 
 ## Child Task Groups
 
@@ -241,3 +242,15 @@ Try "Work" and "Race" instad of "Run" and "Race", and make "Run" mean "result" i
   Task WorkAsync(Func<TaskGroup, ValueTask>); // cancellation is ignored
   Task RunAsync(Func<TaskGroup, ValueTask>); // cancellation cancels returned task
   Task<T> RunAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+
+Final meanings:
+- "Work" adds work to the group. Cancellation is ignored; exceptions fault the group.
+- "RunAsync" adds work with a result to the group. Cancellation and exceptions operate like Work and are also reported on the returned task.
+- "RunSequence" adds work with multiple results to the group. Cancellation and exceptions operate like Work and are also reported on the returned sequence.
+- "Spawn" starts a child task.
+  - "Spawn" + "Work" starts a child group with "Work" semantics.
+  - "Spawn" + "RunAsync" starts a child group with "RunAsync" semantics.
+- "Race" adds racing to the group. Cancellation is ignored; exceptions are ignored; success cancels the group.
+- "Spawn" + "RaceAsync" starts a child group with "Race" semantics and returns the result.
+- (top-level) "WorkAsync" starts a new group with "Work" semantics, ignoring cancellation.
+- (top-level) "RunAsync" starts a new group with "RunAsync" semantics.
