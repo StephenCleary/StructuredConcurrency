@@ -192,3 +192,52 @@ Behaviors:
   Task<T> EvaluateAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
 
 - Can a child group return multiple results? Is that useful?
+
+- Add work to the task group:
+  void Run(Func<CancellationToken, ValueTask>); // cancellation is ignored
+- Work with results:
+  Task<T> EvaluateAsync(Func<CancellationToken, ValueTask<T>>) // cancellation is ignored by group but cancels returned task
+  IAsyncEnumerable<T> RunSequence(Func<CancellationToken, IAsyncEnumerable<T>>) // cancellation is ignored by group but cancels returned sequence
+- Child groups:
+  void Spawn(Func<TaskGroup, ValueTask>); // cancellation is ignored
+  Task<T> SpawnRunAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+- Races:
+  Task<T> SpawnRaceAsync(Func<RacingTaskGroup<T>, ValueTask); // cancellation cancels returned task
+  void Race(Func<CancellationToken, ValueTask<T>>); // cancellation is ignored
+- Top-level work:
+  Task RunAsync(Func<TaskGroup, ValueTask>); // cancellation is ignored
+  Task EvaluateAsync(Func<TaskGroup, ValueTask>); // cancellation cancels returned task
+  Task<T> EvaluateAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+
+Dropping the top-level work that ignores cancellation:
+- Add work to the task group:
+  void Run(Func<CancellationToken, ValueTask>); // cancellation is ignored
+- Work with results:
+  Task<T> RunAsync(Func<CancellationToken, ValueTask<T>>) // cancellation is ignored by group but cancels returned task
+  IAsyncEnumerable<T> RunSequence(Func<CancellationToken, IAsyncEnumerable<T>>) // cancellation is ignored by group but cancels returned sequence
+- Child groups:
+  void Spawn(Func<TaskGroup, ValueTask>); // cancellation is ignored
+  Task<T> SpawnAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+- Races:
+  Task<T> SpawnRaceAsync(Func<RacingTaskGroup<T>, ValueTask); // cancellation cancels returned task
+  void Race(Func<CancellationToken, ValueTask<T>>); // cancellation is ignored
+- Top-level work:
+  Task RunAsync(Func<TaskGroup, ValueTask>); // cancellation cancels returned task
+  Task<T> RunAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+
+Try "Work" and "Race" instad of "Run" and "Race", and make "Run" mean "result" instead:
+- Add work to the task group:
+  void Work(Func<CancellationToken, ValueTask>); // cancellation is ignored
+- Work with results:
+  Task<T> RunAsync(Func<CancellationToken, ValueTask<T>>) // cancellation is ignored by group but cancels returned task
+  IAsyncEnumerable<T> RunSequence(Func<CancellationToken, IAsyncEnumerable<T>>) // cancellation is ignored by group but cancels returned sequence
+- Child groups:
+  void SpawnWork(Func<TaskGroup, ValueTask>); // cancellation is ignored
+  Task<T> SpawnRunAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
+- Races:
+  Task<T> SpawnRaceAsync(Func<RacingTaskGroup<T>, ValueTask); // cancellation cancels returned task
+  void Race(Func<CancellationToken, ValueTask<T>>); // cancellation is ignored
+- Top-level work:
+  Task WorkAsync(Func<TaskGroup, ValueTask>); // cancellation is ignored
+  Task RunAsync(Func<TaskGroup, ValueTask>); // cancellation cancels returned task
+  Task<T> RunAsync(Func<TaskGroup, ValueTask<T>>); // cancellation cancels returned task
