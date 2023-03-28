@@ -254,3 +254,29 @@ Final meanings:
 - "Spawn" + "RaceAsync" starts a child group with "Race" semantics and returns the result.
 - (top-level) "WorkAsync" starts a new group with "Work" semantics, ignoring cancellation.
 - (top-level) "RunAsync" starts a new group with "RunAsync" semantics.
+
+
+The whole point behind top-level RunAsync and friends is because:
+await using (var group = new TaskGroup(...))
+{
+  // This code in here is not actually part of the group. E.g., exceptions don't cancel the group; cancellation isn't ignored.
+}
+so instead we do something like this:
+await using (var group = new TaskGroup(...))
+{
+  group.Run(/* end-user code goes here */);
+}
+
+But with child groups, we want the ability to do a try/catch around the group disposal, i.e.,:
+try
+{
+  await using (var childGroup = new TaskGroup(parentGroup.CancellationToken))
+  {
+    childGroup.Run(/* end-user code goes here */);
+  }
+}
+catch
+{
+  /* end-user code also goes here, and may propagate the exception or do something completely different with it */
+}
+although, really, propagating exceptions is almost never useful. Child groups would always do something else with it instead.
