@@ -11,7 +11,7 @@ namespace Nito.StructuredConcurrency;
 /// </list>
 /// </summary>
 /// <typeparam name="TResult">The type of the value that is the result of the race.</typeparam>
-public sealed class RacingTaskGroup<TResult>
+public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
 {
     private readonly TaskGroup _group;
     private readonly RaceResult<TResult> _raceResult;
@@ -38,6 +38,9 @@ public sealed class RacingTaskGroup<TResult>
 
     /// <inheritdoc cref="TaskGroup.AddResourceAsync"/>
     public ValueTask AddResourceAsync(object? resource) => _group.AddResourceAsync(resource);
+
+    /// <inheritdoc cref="TaskGroup.DisposeAsync"/>
+    public ValueTask DisposeAsync() => _group.DisposeAsync();
 
     /// <summary>
     /// Adds race work to this task group.
