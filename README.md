@@ -8,11 +8,11 @@ Structured Concurrency for C#.
 A task group provides a scope in which work is done.
 At the end of that scope, the task group (asynchronously) waits for all of its work to complete.
 
-A `TaskGroup` is started with `TaskGroup.RunAsync`.
-The delegate passed to `RunAsync` is the first work item; it can run any other work items in that same group.
-When all the work items have completed, then the group scope closes, and the task returned from `RunAsync` completes.
+A `TaskGroup` is started with `TaskGroup.RunGroupAsync`.
+The delegate passed to `RunGroupAsync` is the first work item; it can run any other work items in that same group.
+When all the work items have completed, then the group scope closes, and the task returned from `RunGroupAsync` completes.
 
-Work may be added to a task group at any time, as long as the scope has not completed.
+Work may be added to a task group at any time by calling `Run`, as long as the scope has not completed.
 Conceptually, the task group scope ends with a kind of `Task.WhenAll`, but with the important difference that more work may be added after the disposal begins.
 As long as the work is added before all other work completes, the task group will "extend" its logical `WhenAll` to include the additional work.
 
@@ -31,7 +31,7 @@ Task groups always ignore any work that is cancelled (i.e., task groups catch an
 Task groups provide `CancellationToken` parameters to all of their work, and it is the work's responsibility to respond to that cancellation.
 
 The task group will cancel itself if any work item faults.
-Task groups also take a `CancellationToken` as an optional `RunAsync` parameter to enable cancellation from "upstream"; e.g., if the application is shutting down.
+Task groups also take a `CancellationToken` as parameter to the static `RunGroupAsync` methods to enable cancellation from "upstream"; e.g., if the application is shutting down.
 Task groups can also be cancelled manually (via `TaskGroup.CancellationTokenSource`) if the program logic wishes to stop the task group for any reason.
 
 ### Resources
@@ -44,7 +44,7 @@ All exceptions raised by disposal of any resource are ignored.
 ### Results
 
 Most work has no results, but it is possible for a work item to return a single value.
-Work that returns a value uses an overload of `TaskGroup.Run` that returns an awaitable result.
+Work that returns a value is initiated by calling `RunAsync`, which returns an awaitable result.
 Reminder: if you are returning these results outside the task group scope, then the task group must complete all its work before that scope is complete.
 
 Result values are not treated as resources; their lifetime is not scoped to the task group.
@@ -66,10 +66,10 @@ If you need a sequence value to outlast the task group, return a sequence of ref
 The usual pattern for task groups is to cancel on failure and ignore success.
 Sometimes, we want to "race" several work items to produce a result; in this case, we want the opposite: ignore failures and cancel on success.
 
-The usual pattern is to create a race child group via `TaskGroup.SpawnRaceAsync`.
+The usual pattern is to create a race child group via `TaskGroup.RaceGroupAsync`.
 This creates a separate group along with a race result that are used for races.
 To race work, call `Race` instead of `Run`.
 The first successful `Race` will cancel all the others.
-Once all races have completed (i.e., the race child group's scope is complete), then the results of the race are returned from `SpawnRaceAsync`.
+Once all races have completed (i.e., the race child group's scope is complete), then the results of the race are returned from `RaceGroupAsync`.
 
 Successful results that lose the race are treated as resources, but are disposed immediately rather than scoped to the race child group.
