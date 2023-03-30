@@ -60,7 +60,7 @@ public sealed partial class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public void Run(Func<CancellationToken, ValueTask> work) => _ = RunAsync(async ct => { await work(ct).ConfigureAwait(false); return 0; });
+    public void Run(Func<CancellationToken, ValueTask> work) => _ = RunAsync(work.WithResult());
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
@@ -74,23 +74,12 @@ public sealed partial class TaskGroup : IAsyncDisposable
     {
         var startSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var result = CancelOnException(CancellationTokenSource, DelayStart(startSignal.Task, work))(CancellationToken);
-        var childTask = IgnoreCancellation(result);
+        var childTask = result.IgnoreCancellation();
         _tasks.Add(childTask);
 
         startSignal.TrySetResult();
 
         return result;
-
-        static async Task IgnoreCancellation(Task<T> task)
-        {
-            try
-            {
-                _ = await task.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-            }
-        }
 
         static Func<CancellationToken, ValueTask<T>> DelayStart(Task startSignal, Func<CancellationToken, ValueTask<T>> work) => async cancellationToken =>
         {

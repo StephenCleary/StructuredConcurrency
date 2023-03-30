@@ -19,18 +19,4 @@ public static class TaskExtensions
         {
         }
     }
-
-    /// <summary>
-    /// Ignores cancellation of the source task.
-    /// </summary>
-    public static async ValueTask IgnoreCancellation(this ValueTask task)
-    {
-        try
-        {
-            await task.ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
 }

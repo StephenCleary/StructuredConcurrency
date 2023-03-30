@@ -1,4 +1,5 @@
 ﻿using Nito.StructuredConcurrency.Advanced;
+using Nito.StructuredConcurrency.Internals;
 
 namespace Nito.StructuredConcurrency;
 
@@ -13,7 +14,7 @@ public sealed partial class TaskGroup
     public static async Task<T> RunGroupAsync<T>(Func<TaskGroup, ValueTask<T>> work, CancellationToken cancellationToken)
     {
         await using var group = new TaskGroup(cancellationToken);
-        return await group.RunAsync(async _ => await work(group).ConfigureAwait(false)).ConfigureAwait(false);
+        return await group.RunAsync(_ => work(group)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -22,10 +23,8 @@ public sealed partial class TaskGroup
     /// <typeparam name="T">The type of the result of the task.</typeparam>
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first work task of the task group.</param>
-#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public static Task<T> RunGroupAsync<T>(Func<TaskGroup, T> work, CancellationToken cancellationToken) =>
-        RunGroupAsync(async g => work(g), cancellationToken);
-#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        RunGroupAsync(work.AsAsync(), cancellationToken);
 
     /// <summary>
     /// Creates a new <see cref="TaskGroup"/> and runs the specified work as the first work task.
@@ -33,17 +32,15 @@ public sealed partial class TaskGroup
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first work task of the task group.</param>
     public static Task RunGroupAsync(Func<TaskGroup, ValueTask> work, CancellationToken cancellationToken) =>
-        RunGroupAsync(async g => { await work(g).ConfigureAwait(false); return 0; }, cancellationToken);
+        RunGroupAsync(work.WithResult(), cancellationToken);
 
     /// <summary>
     /// Creates a new <see cref="TaskGroup"/> and runs the specified work as the first work task.
     /// </summary>
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first work task of the task group.</param>
-#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public static Task RunGroupAsync(Action<TaskGroup> work, CancellationToken cancellationToken) =>
-        RunGroupAsync(async g => { work(g); return 0; }, cancellationToken);
-#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        RunGroupAsync(work.AsAsync().WithResult(), cancellationToken);
 
     /// <summary>
     /// Creates a new <see cref="RacingTaskGroup{TResult}"/> and runs the specified work as the first work task.
@@ -54,7 +51,7 @@ public sealed partial class TaskGroup
     {
         var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
         var raceResult = new RaceResult<T>();
-        await TaskGroup.RunGroupAsync(async group =>
+        await RunGroupAsync(async group =>
         {
             var raceGroup = new RacingTaskGroup<T>(group, raceResult);
             await work(raceGroup).ConfigureAwait(false);
@@ -67,8 +64,6 @@ public sealed partial class TaskGroup
     /// </summary>
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first work task of the task group.</param>
-#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public static Task<T> RaceGroupAsync<T>(Action<RacingTaskGroup<T>> work, CancellationToken cancellationToken = default) =>
-        RaceGroupAsync<T>(async g => work(g), cancellationToken);
-#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+        RaceGroupAsync<T>(work.AsAsync(), cancellationToken);
 }
