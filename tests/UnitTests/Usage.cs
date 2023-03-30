@@ -8,11 +8,11 @@ public class Usage
     [Fact]
     public async Task ImplicitWhenAll()
     {
-        await TaskGroup.RunGroupAsync(group =>
+        await TaskGroup.RunGroupAsync(default, group =>
         {
             group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(1), token));
             group.Run(async token => await Task.Delay(TimeSpan.FromMilliseconds(2), token));
-        }, default); // implicit WhenAll
+        }); // implicit WhenAll
     }
 
     [Fact]
@@ -20,7 +20,7 @@ public class Usage
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await TaskGroup.RunGroupAsync(group =>
+            await TaskGroup.RunGroupAsync(default, group =>
             {
                 var channel = Channel.CreateBounded<int>(10);
 
@@ -50,7 +50,7 @@ public class Usage
                 // then both are cancelled, and the TaskGroup disposal waits for
                 // both of them to completely cancel before re-raising the original
                 // exception.
-            }, default);
+            });
         });
     }
 
@@ -59,7 +59,7 @@ public class Usage
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await TaskGroup.RunGroupAsync(group =>
+            await TaskGroup.RunGroupAsync(default, group =>
             {
                 // Producer
                 var integers = group.RunSequence(token =>
@@ -93,7 +93,7 @@ public class Usage
                 // then both are cancelled, and the TaskGroup disposal waits for
                 // both of them to completely cancel before re-raising the original
                 // exception.
-            }, default);
+            });
         });
     }
 
@@ -102,7 +102,7 @@ public class Usage
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await TaskGroup.RunGroupAsync(group =>
+            await TaskGroup.RunGroupAsync(default, group =>
             {
                 var channel = Channel.CreateBounded<int>(10);
 
@@ -138,7 +138,7 @@ public class Usage
                 // then all are cancelled, and the TaskGroup disposal waits for
                 // all of them to completely cancel before re-raising the original
                 // exception.
-            }, default);
+            });
         });
     }
 
@@ -147,7 +147,7 @@ public class Usage
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
-            await TaskGroup.RunGroupAsync(group =>
+            await TaskGroup.RunGroupAsync(default, group =>
             {
                 // Producer
                 var channel = group.RunSequence(token =>
@@ -190,14 +190,14 @@ public class Usage
                 // then all are cancelled, and the TaskGroup disposal waits for
                 // all of them to completely cancel before re-raising the original
                 // exception.
-            }, default);
+            });
         });
     }
 
     [Fact]
     public async Task Pipeline()
     {
-        var result = await TaskGroup.RunGroupAsync(async group =>
+        var result = await TaskGroup.RunGroupAsync(default, async group =>
         {
             // All the channels and transformation methods are asynchronously
             // scoped to this "CalculateUsingTemporaryPipelineAsync" method.
@@ -251,7 +251,7 @@ public class Usage
                     result += value;
                 return result;
             });
-        }, default);
+        });
 
         Assert.Equal(750000, result);
     }
@@ -259,7 +259,7 @@ public class Usage
     [Fact]
     public async Task ExplicitCancel()
     {
-        var result = await TaskGroup.RunGroupAsync(group =>
+        var result = await TaskGroup.RunGroupAsync(default, group =>
         {
             // All the channels and transformation methods are asynchronously
             // scoped to this "CalculateUsingTemporaryPipelineAsync" method.
@@ -309,7 +309,7 @@ public class Usage
             // Oh, hey, we don't need this pipeline after all.
             group.CancellationTokenSource.Cancel();
             return 42;
-        }, default);
+        });
 
         Assert.Equal(42, result);
     }

@@ -7,12 +7,12 @@ namespace UnitTests;
 
 public sealed class HappyEyeballs
 {
-    public async Task<IPAddress> ConnectAsync(string hostname)
+    public async Task<IPAddress> ConnectAsync(string hostname, CancellationToken cancellationToken = default)
     {
-        return await TaskGroup.RunGroupAsync(async group =>
+        return await TaskGroup.RunGroupAsync(cancellationToken, async group =>
         {
             var ipAddresses = await Dns.GetHostAddressesAsync(hostname, group.CancellationToken);
-            return await TaskGroup.RaceGroupAsync<IPAddress>(async raceGroup =>
+            return await TaskGroup.RaceGroupAsync<IPAddress>(group.CancellationToken, async raceGroup =>
             {
                 foreach (var ipAddress in ipAddresses)
                 {
@@ -21,7 +21,7 @@ public sealed class HappyEyeballs
                     await Task.Delay(TimeSpan.FromMilliseconds(300), raceGroup.CancellationTokenSource.Token);
                 }
             });
-        }, default);
+        });
 
         static async Task<IPAddress> TryConnectAsync(IPAddress ipAddress, CancellationToken token)
         {

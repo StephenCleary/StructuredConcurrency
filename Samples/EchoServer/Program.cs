@@ -5,7 +5,7 @@ using System.Net.Sockets;
 
 var applicationExit = ConsoleEx.HookCtrlCCancellation();
 
-var serverGroupTask = TaskGroup.RunGroupAsync(async serverGroup =>
+var serverGroupTask = TaskGroup.RunGroupAsync(applicationExit, async serverGroup =>
 {
     // listener
     var sockets = serverGroup.RunSequence(ct =>
@@ -41,7 +41,7 @@ var serverGroupTask = TaskGroup.RunGroupAsync(async serverGroup =>
         {
             try
             {
-                await TaskGroup.RunGroupAsync(async group =>
+                await TaskGroup.RunGroupAsync(ct, async group =>
                 {
                     await group.AddResourceAsync(socket);
                     var buffer = new byte[1024];
@@ -50,7 +50,7 @@ var serverGroupTask = TaskGroup.RunGroupAsync(async serverGroup =>
                         var bytesRead = await socket.Socket.ReceiveAsync(buffer, SocketFlags.None, ct);
                         await socket.Socket.SendAsync(buffer.AsMemory()[..bytesRead], SocketFlags.None, ct);
                     }
-                }, ct);
+                });
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -58,7 +58,7 @@ var serverGroupTask = TaskGroup.RunGroupAsync(async serverGroup =>
             }
         });
     }
-}, applicationExit);
+});
 
 Console.WriteLine("Listening on port 5000; press Ctrl-C to cancel...");
 
