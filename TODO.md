@@ -1,3 +1,6 @@
+- The whole sequence-output-as-resources thing doesn't sit well.
+  - E.g., TCP server will have its resources grow without bound over time.
+  - Instead, can we drain sequences at group shutdown?
 - Can we do something like Trio's cancel scopes for timeouts?
 - Finish HappyEyeballs
 - Write TCP/IP chat app for comparison.

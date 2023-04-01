@@ -7,7 +7,7 @@ var applicationExit = ConsoleEx.HookCtrlCCancellation();
 
 var serverGroupTask = TaskGroup.RunGroupAsync(applicationExit, async serverGroup =>
 {
-    // listener
+    // Start the "listener"; this work accepts new socket connections and pushes them to a channel.
     var sockets = serverGroup.RunSequence(ct =>
     {
         return Impl();
@@ -34,16 +34,25 @@ var serverGroupTask = TaskGroup.RunGroupAsync(applicationExit, async serverGroup
         }
     });
 
-    // echoers
+    // As each new socket comes in, start an independent "echoer".
     await foreach (var socket in sockets)
     {
         serverGroup.Run(async ct =>
         {
+            // The try/catch is used to prevent exceptions from bubbling up and canceling the group (and the listenener).
+            // I.e., we want each socket connection to fail on its own without affecting the server.
             try
             {
+                // Create a linked child group to handle the individual connection.
+                // The child group is linked to the parent via the cancellation token, so cancellation will flow down.
+                // Normally, exceptions would also flow up, but the try/catch prevents that.
                 await TaskGroup.RunGroupAsync(ct, async group =>
                 {
+                    // Each child group owns its client socket connection.
                     await group.AddResourceAsync(socket);
+
+                    // This simple "echoer" example just has a single bit of work: read followed by write.
+                    // A more realistic TCP application would have two workers here: a reader and a writer.
                     var buffer = new byte[1024];
                     while (true)
                     {
@@ -54,6 +63,7 @@ var serverGroupTask = TaskGroup.RunGroupAsync(applicationExit, async serverGroup
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                // Do not do a `throw;` here; that would cancel the server as soon as any client faulted.
                 Console.WriteLine(ex);
             }
         });

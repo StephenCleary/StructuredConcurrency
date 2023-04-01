@@ -5,12 +5,15 @@ using System.Net.Sockets;
 using System.Text;
 
 var applicationExit = ConsoleEx.HookCtrlCCancellation();
-using var clientSocket = new GracefulCloseSocket { Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) };
 
 var groupTask = TaskGroup.RunGroupAsync(applicationExit, async group =>
 {
+    // Create and connect the socket, registering it as a resource owned by the group.
+    var clientSocket = new GracefulCloseSocket { Socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp) };
+    await group.AddResourceAsync(clientSocket);
     await clientSocket.Socket.ConnectAsync(new IPEndPoint(IPAddress.Loopback, 5000), group.CancellationToken);
 
+    // Start the reader work: Everything that comes in the socket is dumped to the console.
     group.Run(async ct =>
     {
         var buffer = new byte[1024];
@@ -23,6 +26,7 @@ var groupTask = TaskGroup.RunGroupAsync(applicationExit, async group =>
         }
     });
 
+    // Start the writer work: Everything read from the console is dumped to the socket.
     group.Run(async ct =>
     {
         while (!ct.IsCancellationRequested)
