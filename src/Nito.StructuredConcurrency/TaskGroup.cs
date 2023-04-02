@@ -129,10 +129,20 @@ public sealed partial class TaskGroup : IAsyncDisposable
         {
             try
             {
-                await foreach (var item in work(ct).WithCancellation(ct).ConfigureAwait(false))
+                // Note: No `WithCancellation(ct)`, because the work must decide when it is canceled.
+                // If the worker method produces an item, we must flow it through.
+                await foreach (var item in work(ct).ConfigureAwait(false))
                 {
-                    await AddResourceAsync(DisposeUtility.TryWrap(item)).ConfigureAwait(false);
-                    await channel.Writer.WriteAsync(item, ct).ConfigureAwait(false);
+                    // If cancellation happens after the worker produced an item, then just dispose of it.
+                    try
+                    {
+                        await channel.Writer.WriteAsync(item, ct).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        await DisposeUtility.Wrap(item).DisposeAsync().ConfigureAwait(false);
+                        throw;
+                    }
                 }
             }
             catch (Exception ex)
@@ -145,6 +155,8 @@ public sealed partial class TaskGroup : IAsyncDisposable
                 channel.Writer.TryComplete();
             }
         });
+
+        // Note: `CancellationToken.None`, for the same reason as above: the worker method produced an item, and we must flow it through.
         return channel.Reader.ReadAllAsync(CancellationToken.None);
     }
 

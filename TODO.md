@@ -6,6 +6,7 @@
   => Or we can have the "sequence" returned from the producer just have a RunConsumer method to force them into a separate method?
      - That would allow for draining resource (and other) queues.
      - Natural API would use a captured group. Should we allow overriding the group?
+     X Wouldn't allow for multiple consumers. :(
 - Can we do something like Trio's cancel scopes for timeouts?
 - Finish HappyEyeballs
 - Write TCP/IP chat app for comparison.

@@ -137,7 +137,7 @@ public class TaskGroupUnitTests
     }
 
     [Fact]
-    public async Task SequenceValue_IsAResource()
+    public async Task SequenceValue_NotAResource()
     {
         int wasdisposed = 0;
 
@@ -153,7 +153,7 @@ public class TaskGroupUnitTests
             });
         });
         var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
-        Assert.Equal(1, wasdisposed);
+        Assert.Equal(0, wasdisposed);
     }
 
     [Fact]
@@ -239,5 +239,32 @@ public class TaskGroupUnitTests
 
         var result = Interlocked.CompareExchange(ref exceptionWasObserved, 0, 0);
         Assert.Equal(1, exceptionWasObserved);
+    }
+
+    [Fact]
+    public async Task CancelledSequenceEnumeration_Ignored()
+    {
+        int observed = 0;
+
+        var cts = new CancellationTokenSource();
+        var groupTask = TaskGroup.RunGroupAsync(cts.Token, async group =>
+        {
+            var sequence = group.RunSequence(ct =>
+            {
+                return Impl();
+                async IAsyncEnumerable<int> Impl()
+                {
+                    for (var i = 0; i != 1000000; ++i)
+                        yield return i;
+                }
+            });
+
+            await foreach (var item in sequence.WithCancellation(group.CancellationToken))
+                Interlocked.Increment(ref observed);
+        });
+        
+        cts.Cancel();
+        await groupTask.IgnoreCancellation();
+        Assert.Equal(0, observed);
     }
 }

@@ -82,7 +82,7 @@ public class Usage
                 // Consumer
                 group.Run(async token =>
                 {
-                    await foreach (var value in integers.WithCancellation(token))
+                    await foreach (var value in integers)
                     {
                         if (value == 13)
                             throw new InvalidOperationException("Oh, no!");

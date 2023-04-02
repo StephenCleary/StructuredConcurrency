@@ -58,8 +58,9 @@ The values go into a bounded channel.
 It's not possible to return sequences outside the task group, since the task group must complete (and thus the sequence must be complete).
 It is possible to have task group work explicitly write to a channel, or collect all the results and return them once the sequence (and thus the work) is complete.
 
-Sequence values are treated as resources and are scoped to the task group.
-If you need a sequence value to outlast the task group, return a sequence of reference counted disposables.
+Sequence values that are produced after group cancellation are treated as resources and disposed immediately.
+
+If your sequence values are resources, please ensure they are disposed properly, and do not cancel reading from the sequence.
 
 ### Races
 
