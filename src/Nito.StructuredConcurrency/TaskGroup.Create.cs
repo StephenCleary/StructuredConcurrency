@@ -15,8 +15,15 @@ public sealed partial class TaskGroup
     /// <param name="work">The first work task of the task group.</param>
     public static async Task<T> RunGroupAsync<T>(CancellationToken cancellationToken, Func<TaskGroup, ValueTask<T>> work)
     {
-        await using var group = new TaskGroup(cancellationToken);
-        return await group.RunAsync(_ => work(group)).ConfigureAwait(false);
+        var group = new TaskGroup(cancellationToken);
+        try
+        {
+            return await group.RunAsync(_ => work(group)).ConfigureAwait(false);
+        }
+        finally
+        {
+            await group.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     /// <summary>

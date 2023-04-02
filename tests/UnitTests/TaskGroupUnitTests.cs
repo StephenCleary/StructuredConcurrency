@@ -252,7 +252,8 @@ public class TaskGroupUnitTests
             var sequence = group.RunSequence(ct =>
             {
                 return Impl();
-                async IAsyncEnumerable<int> Impl()
+
+                static async IAsyncEnumerable<int> Impl()
                 {
                     for (var i = 0; i != 1000000; ++i)
                         yield return i;
