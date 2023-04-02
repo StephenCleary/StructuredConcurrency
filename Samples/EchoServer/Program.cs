@@ -7,35 +7,31 @@ var applicationExit = ConsoleEx.HookCtrlCCancellation();
 
 var serverGroupTask = TaskGroup.RunGroupAsync(applicationExit, async serverGroup =>
 {
-    // Start the "listener"; this work accepts new socket connections and pushes them to a channel.
-    var sockets = serverGroup.RunSequence(ct =>
+    // Define the "listener"; this work accepts new socket connections.
+    async IAsyncEnumerable<GracefulCloseSocket> ListenAsync()
     {
-        return Impl();
-        async IAsyncEnumerable<GracefulCloseSocket> Impl()
+        using var listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        listeningSocket.Bind(new IPEndPoint(IPAddress.Any, 5000));
+        listeningSocket.Listen();
+        while (true)
         {
-            using var listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            listeningSocket.Bind(new IPEndPoint(IPAddress.Any, 5000));
-            listeningSocket.Listen();
-            while (true)
+            Socket? socket = null;
+            try
             {
-                Socket? socket = null;
-                try
-                {
-                    socket = await listeningSocket.AcceptAsync(ct);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    // Ignore accept failures.
-                }
-
-                if (socket != null)
-                    yield return new() { Socket = socket };
+                socket = await listeningSocket.AcceptAsync(serverGroup.CancellationToken);
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Ignore accept failures.
+            }
+
+            if (socket != null)
+                yield return new() { Socket = socket };
         }
-    });
+    }
 
     // As each new socket comes in, start an independent "echoer".
-    await foreach (var socket in sockets)
+    await foreach (var socket in ListenAsync())
     {
         serverGroup.Run(async ct =>
         {
