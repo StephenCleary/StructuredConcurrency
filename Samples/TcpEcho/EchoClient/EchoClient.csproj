@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Nito.StructuredConcurrency\Nito.StructuredConcurrency.csproj" />
+    <ProjectReference Include="..\..\..\src\Nito.StructuredConcurrency\Nito.StructuredConcurrency.csproj" />
     <ProjectReference Include="..\Helpers\Helpers.csproj" />
   </ItemGroup>
 
