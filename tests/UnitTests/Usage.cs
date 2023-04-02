@@ -313,4 +313,19 @@ public class Usage
 
         Assert.Equal(42, result);
     }
+
+    [Fact]
+    public async Task Timeouts()
+    {
+        var groupTask = TaskGroup.RunGroupAsync(default, async group =>
+        {
+            await TaskGroup.RunGroupAsync(group.CancellationToken, async childGroup =>
+            {
+                childGroup.CancellationTokenSource.CancelAfter(TimeSpan.FromMilliseconds(10));
+                await Task.Delay(Timeout.InfiniteTimeSpan, childGroup.CancellationToken);
+            });
+        });
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => groupTask);
+    }
 }
