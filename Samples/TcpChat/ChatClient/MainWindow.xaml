@@ -1,0 +1,21 @@
+﻿<Window x:Class="ChatClient.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ChatClient"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <Button Content="Connect" HorizontalAlignment="Left" Height="26" Margin="30,20,0,0" VerticalAlignment="Top" Width="96" Click="Button_Click"/>
+        <TextBlock Height="188" Margin="0,246,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Name="Log"/>
+        <TextBox Name="chatMessageTextBox" HorizontalAlignment="Left" Margin="30,64,0,0" TextWrapping="Wrap" Text="Hello, server!" VerticalAlignment="Top" Width="120"/>
+        <Button Content="Send" HorizontalAlignment="Left" Margin="155,64,0,0" VerticalAlignment="Top" Click="Button_Click_1"/>
+        <Button Content="Disconnect" HorizontalAlignment="Left" Height="26" Margin="131,20,0,0" VerticalAlignment="Top" Width="96" Click="Button_Click_2"/>
+        <TextBox Text="Bob" HorizontalAlignment="Center" Margin="0,64,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" Name="nicknameTextBox" />
+        <Label Content="Nickname:" HorizontalAlignment="Left" Margin="274,60,0,0" VerticalAlignment="Top" RenderTransformOrigin="1.066,-0.249"/>
+        <Button Content="Set" HorizontalAlignment="Left" Margin="465,64,0,0" VerticalAlignment="Top" Click="Button_Click_3"/>
+        <TextBlock Height="231" Margin="532,10,10,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" x:Name="Chat"/>
+
+    </Grid>
+</Window>
