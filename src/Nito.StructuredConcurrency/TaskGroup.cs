@@ -1,4 +1,5 @@
-﻿using Nito.StructuredConcurrency.Internals;
+﻿using Nito.StructuredConcurrency.Advanced;
+using Nito.StructuredConcurrency.Internals;
 
 namespace Nito.StructuredConcurrency;
 
@@ -18,7 +19,7 @@ public static class TaskGroup
     public static async Task<T> RunGroupAsync<T>(CancellationToken cancellationToken, Func<RunTaskGroup, ValueTask<T>> work)
     {
 #pragma warning disable CA2000 // Dispose objects before losing scope
-        var group = new RunTaskGroup(new WorkTaskGroup(cancellationToken));
+        var group = new RunTaskGroup(new TaskGroupCore(cancellationToken));
 #pragma warning restore CA2000 // Dispose objects before losing scope
         await using (group.ConfigureAwait(false))
             return await group.RunAsync(_ => work(group)).ConfigureAwait(false);

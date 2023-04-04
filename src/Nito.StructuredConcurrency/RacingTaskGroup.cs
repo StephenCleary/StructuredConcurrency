@@ -14,13 +14,13 @@ namespace Nito.StructuredConcurrency;
 /// <typeparam name="TResult">The type of the value that is the result of the race.</typeparam>
 public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
 {
-    private readonly WorkTaskGroup _group;
+    private readonly TaskGroupCore _group;
     private readonly RaceResult<TResult> _raceResult;
 
     /// <summary>
     /// Creates a racing task group.
     /// </summary>
-    internal RacingTaskGroup(WorkTaskGroup group, RaceResult<TResult> raceResult)
+    internal RacingTaskGroup(TaskGroupCore group, RaceResult<TResult> raceResult)
     {
         _group = group;
         _raceResult = raceResult;
@@ -53,7 +53,7 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     {
         var raceResult = new RaceResult<TResult>();
 
-        var raceGroup = new RacingTaskGroup<TResult>(new WorkTaskGroup(cancellationToken), raceResult);
+        var raceGroup = new RacingTaskGroup<TResult>(new TaskGroupCore(cancellationToken), raceResult);
         await using (raceGroup.ConfigureAwait(false))
             raceGroup._group.Run(_ => work(raceGroup));
 

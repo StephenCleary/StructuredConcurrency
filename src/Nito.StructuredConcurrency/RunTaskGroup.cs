@@ -1,4 +1,5 @@
-﻿using Nito.StructuredConcurrency.Internals;
+﻿using Nito.StructuredConcurrency.Advanced;
+using Nito.StructuredConcurrency.Internals;
 
 namespace Nito.StructuredConcurrency;
 
@@ -14,12 +15,12 @@ namespace Nito.StructuredConcurrency;
 /// </summary>
 public sealed class RunTaskGroup : IAsyncDisposable
 {
-    private readonly WorkTaskGroup _group;
+    private readonly TaskGroupCore _group;
 
     /// <summary>
     /// Creates a task group.
     /// </summary>
-    internal RunTaskGroup(WorkTaskGroup group)
+    internal RunTaskGroup(TaskGroupCore group)
     {
         _group = group;
     }

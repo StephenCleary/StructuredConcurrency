@@ -2,7 +2,7 @@
 using Nito.StructuredConcurrency.Internals;
 using System.Runtime.ExceptionServices;
 
-namespace Nito.StructuredConcurrency;
+namespace Nito.StructuredConcurrency.Advanced;
 
 /// <summary>
 /// A task group represents a list of tasks along with a <see cref="CancellationTokenSource"/>. Semantics:
@@ -14,7 +14,7 @@ namespace Nito.StructuredConcurrency;
 /// <item>Disposing the task group does not cancel the task group; it just waits for the child tasks. You can explicitly cancel the task group before disposing, if desired.</item>
 /// </list>
 /// </summary>
-public sealed partial class WorkTaskGroup : IAsyncDisposable
+public sealed partial class TaskGroupCore : IAsyncDisposable
 {
     private readonly DynamicTaskWhenAll _tasks;
     private readonly TaskCompletionSource _groupScope;
@@ -24,7 +24,7 @@ public sealed partial class WorkTaskGroup : IAsyncDisposable
     /// Creates a task group, optionally linking it to an upstream cancellation source.
     /// </summary>
     /// <param name="cancellationToken">The upstream cancellation token.</param>
-    internal WorkTaskGroup(CancellationToken cancellationToken = default)
+    internal TaskGroupCore(CancellationToken cancellationToken = default)
     {
         CancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _tasks = new();

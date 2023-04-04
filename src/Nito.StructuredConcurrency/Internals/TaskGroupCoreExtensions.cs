@@ -2,11 +2,11 @@
 
 namespace Nito.StructuredConcurrency.Internals;
 
-internal static class WorkTaskGroupExtensions
+internal static class TaskGroupCoreExtensions
 {
-    public static void Run(this WorkTaskGroup group, Func<CancellationToken, ValueTask> work) => _ = RunAsync(group, work.WithResult());
+    public static void Run(this TaskGroupCore group, Func<CancellationToken, ValueTask> work) => _ = RunAsync(group, work.WithResult());
 
-    public static Task<T> RunAsync<T>(this WorkTaskGroup group, Func<CancellationToken, ValueTask<T>> work)
+    public static Task<T> RunAsync<T>(this TaskGroupCore group, Func<CancellationToken, ValueTask<T>> work)
     {
         return group.WorkAsync(CancelOnException(group.CancellationTokenSource, work));
 
@@ -25,7 +25,7 @@ internal static class WorkTaskGroupExtensions
             };
     }
 
-    public static void Race<T>(this WorkTaskGroup group, RaceResult<T> raceResult, Func<CancellationToken, ValueTask<T>> work)
+    public static void Race<T>(this TaskGroupCore group, RaceResult<T> raceResult, Func<CancellationToken, ValueTask<T>> work)
     {
         _ = group.WorkAsync(async ct =>
         {
