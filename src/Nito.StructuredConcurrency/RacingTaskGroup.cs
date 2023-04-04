@@ -26,16 +26,16 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
         _raceResult = raceResult;
     }
 
-    /// <inheritdoc cref="TaskGroup.CancellationToken"/>
+    /// <inheritdoc cref="RunTaskGroup.CancellationToken"/>
     public CancellationToken CancellationToken => CancellationTokenSource.Token;
 
-    /// <inheritdoc cref="TaskGroup.CancellationTokenSource"/>
+    /// <inheritdoc cref="RunTaskGroup.CancellationTokenSource"/>
     public CancellationTokenSource CancellationTokenSource => _group.CancellationTokenSource;
 
-    /// <inheritdoc cref="TaskGroup.AddResourceAsync"/>
+    /// <inheritdoc cref="RunTaskGroup.AddResourceAsync"/>
     public ValueTask AddResourceAsync(object? resource) => _group.AddResourceAsync(resource);
 
-    /// <inheritdoc cref="TaskGroup.DisposeAsync"/>
+    /// <inheritdoc cref="RunTaskGroup.DisposeAsync"/>
     public ValueTask DisposeAsync() => _group.DisposeAsync();
 
     /// <summary>

@@ -52,7 +52,9 @@ public class TaskGroupUnitTests
 
         var groupTask = TaskGroup.RunGroupAsync(default, group =>
         {
+#pragma warning disable CS0162 // Unreachable code detected
             task1 = group.RunAsync(async _ => { await task1Signal.Task; throw new InvalidOperationException("1"); return 0; });
+#pragma warning restore CS0162 // Unreachable code detected
             task2 = group.RunAsync(async ct => { await Task.Delay(Timeout.InfiniteTimeSpan, ct); return 0; });
             readySignal.TrySetResult();
         });
@@ -130,7 +132,9 @@ public class TaskGroupUnitTests
 
         await TaskGroup.RunGroupAsync(default, async group =>
         {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
             var resource = await group.RunAsync(async ct => Disposable.Create(() => Interlocked.Exchange(ref wasdisposed, 1)));
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
         });
         var result = Interlocked.CompareExchange(ref wasdisposed, 0, 0);
         Assert.Equal(0, wasdisposed);

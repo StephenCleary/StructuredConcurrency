@@ -13,7 +13,7 @@ namespace ChatApi
         private readonly Pipe _inputPipe;
         private readonly TaskCompletionSource<object> _completion;
 
-        public PipelineSocket(TaskGroup group, Socket connectedSocket, uint maxMessageSize = 65536)
+        public PipelineSocket(RunTaskGroup group, Socket connectedSocket, uint maxMessageSize = 65536)
         {
             Socket = connectedSocket;
             RemoteEndPoint = (IPEndPoint) connectedSocket.RemoteEndPoint!;

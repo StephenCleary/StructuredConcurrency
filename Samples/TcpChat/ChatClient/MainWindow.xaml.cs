@@ -3,6 +3,7 @@ using ChatApi.Messages;
 using Nito.StructuredConcurrency;
 using System;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -13,7 +14,7 @@ namespace ChatClient
     /// </summary>
     public partial class MainWindow : Window
     {
-        private TaskGroup? _group;
+        private RunTaskGroup? _group;
         private ChatConnection? _chatConnection;
 
         public MainWindow()
@@ -28,7 +29,7 @@ namespace ChatClient
 
             Log.Text += $"Connected to {clientSocket.RemoteEndPoint}\n";
 
-            _group = Nito.StructuredConcurrency.Advanced.TaskGroupFactory.CreateTaskGroup(default);
+            _group = Nito.StructuredConcurrency.Advanced.TaskGroupFactory.CreateRunTaskGroup(CancellationToken.None);
             _chatConnection = new ChatConnection(_group, new PipelineSocket(_group, clientSocket));
 
             _group.Run(async _ => await ProcessSocketAsync(_chatConnection));

@@ -18,7 +18,7 @@ namespace ChatApi
         private readonly Timer _timer;
         private readonly ConcurrentDictionary<Guid, TaskCompletionSource> _outstandingRequests = new();
 
-        public ChatConnection(TaskGroup group, IPipelineSocket pipelineSocket, TimeSpan keepaliveTimeSpan = default)
+        public ChatConnection(RunTaskGroup group, IPipelineSocket pipelineSocket, TimeSpan keepaliveTimeSpan = default)
         {
             keepaliveTimeSpan = keepaliveTimeSpan == default ? TimeSpan.FromSeconds(5) : keepaliveTimeSpan;
 

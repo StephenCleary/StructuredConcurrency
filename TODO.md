@@ -1,6 +1,10 @@
+- Rename WorkTaskGroup to TaskGroupCore (with extensions). Move from public to Advanced (leave Extensions in Internals).
 - TaskGroup should have a synchronous AddResource for IDisposable types.
+  - Maybe a TryAddResource for both IDisposable and IAsyncDisposable?
 - Finish HappyEyeballs
 - Move usage examples to readme.
+
+- Open question: is there value in an ITaskGroup interface?
 
 ## Child Task Groups
 
