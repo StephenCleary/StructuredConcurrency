@@ -16,73 +16,37 @@ public class Usage
     }
 
     [Fact]
-    public async Task ProducerConsumer_Explicit()
-    {
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            await TaskGroup.RunGroupAsync(default, group =>
-            {
-                var channel = Channel.CreateBounded<int>(10);
-
-                // Producer
-                group.Run(async token =>
-                {
-                    foreach (var value in Enumerable.Range(1, 1_000))
-                    {
-                        token.ThrowIfCancellationRequested();
-                        await channel.Writer.WriteAsync(value, token);
-                    }
-
-                    channel.Writer.Complete();
-                });
-
-                // Consumer
-                group.Run(async token =>
-                {
-                    await foreach (var value in channel.Reader.ReadAllAsync(token))
-                    {
-                        if (value == 13)
-                            throw new InvalidOperationException("Oh, no!");
-                    }
-                });
-
-                // If either the producer or consumer encounters an exception,
-                // then both are cancelled, and the TaskGroup disposal waits for
-                // both of them to completely cancel before re-raising the original
-                // exception.
-            });
-        });
-    }
-
-    [Fact]
     public async Task ProducerConsumer()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
             await TaskGroup.RunGroupAsync(default, group =>
             {
-                // Producer
-                var integers = group.RunSequence(token =>
-                {
-                    return Impl();
+                var channel = Channel.CreateBounded<int>(10);
 
-                    async IAsyncEnumerable<int> Impl()
+                // Producer
+                group.Run(async token =>
+                {
+                    try
                     {
                         foreach (var value in Enumerable.Range(1, 1_000))
                         {
-                            // Pretend to do asynchronous work that observes cancellation
-                            await Task.Yield();
                             token.ThrowIfCancellationRequested();
-
-                            yield return value;
+                            await channel.Writer.WriteAsync(value, token);
                         }
+
+                        channel.Writer.Complete();
+                    }
+                    catch (Exception ex)
+                    {
+                        channel.Writer.Complete(ex);
                     }
                 });
 
                 // Consumer
                 group.Run(async token =>
                 {
-                    await foreach (var value in integers)
+                    await foreach (var value in channel.Reader.ReadAllAsync(token))
                     {
                         if (value == 13)
                             throw new InvalidOperationException("Oh, no!");
@@ -92,51 +56,6 @@ public class Usage
                 // If either the producer or consumer encounters an exception,
                 // then both are cancelled, and the TaskGroup disposal waits for
                 // both of them to completely cancel before re-raising the original
-                // exception.
-            });
-        });
-    }
-
-    [Fact]
-    public async Task ProducerMultipleConsumers_Explicit()
-    {
-        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
-        {
-            await TaskGroup.RunGroupAsync(default, group =>
-            {
-                var channel = Channel.CreateBounded<int>(10);
-
-                // Producer
-                group.Run(async token =>
-                {
-                    foreach (var value in Enumerable.Range(1, 1_000))
-                        await channel.Writer.WriteAsync(value, token);
-                    channel.Writer.Complete();
-                });
-
-                // Consumer
-                group.Run(async token =>
-                {
-                    await foreach (var value in channel.Reader.ReadAllAsync(token))
-                    {
-                        if (value == 13)
-                            throw new InvalidOperationException("Oh, no!");
-                    }
-                });
-
-                // Consumer
-                group.Run(async token =>
-                {
-                    await foreach (var value in channel.Reader.ReadAllAsync(token))
-                    {
-                        if (value == 13)
-                            throw new InvalidOperationException("Oh, no!");
-                    }
-                });
-
-                // If the producer or either consumer encounters an exception,
-                // then all are cancelled, and the TaskGroup disposal waits for
-                // all of them to completely cancel before re-raising the original
                 // exception.
             });
         });
@@ -149,27 +68,27 @@ public class Usage
         {
             await TaskGroup.RunGroupAsync(default, group =>
             {
+                var channel = Channel.CreateBounded<int>(10);
+
                 // Producer
-                var channel = group.RunSequence(token =>
+                group.Run(async token =>
                 {
-                    return Impl();
-                    async IAsyncEnumerable<int> Impl()
+                    try
                     {
                         foreach (var value in Enumerable.Range(1, 1_000))
-                        {
-                            // Pretend to do asynchronous work that observes cancellation
-                            await Task.Yield();
-                            token.ThrowIfCancellationRequested();
-
-                            yield return value;
-                        }
+                            await channel.Writer.WriteAsync(value, token);
+                        channel.Writer.Complete();
+                    }
+                    catch (Exception ex)
+                    {
+                        channel.Writer.Complete(ex);
                     }
                 });
 
                 // Consumer
                 group.Run(async token =>
                 {
-                    await foreach (var value in channel.WithCancellation(token))
+                    await foreach (var value in channel.Reader.ReadAllAsync(token))
                     {
                         if (value == 13)
                             throw new InvalidOperationException("Oh, no!");
@@ -179,7 +98,7 @@ public class Usage
                 // Consumer
                 group.Run(async token =>
                 {
-                    await foreach (var value in channel.WithCancellation(token))
+                    await foreach (var value in channel.Reader.ReadAllAsync(token))
                     {
                         if (value == 13)
                             throw new InvalidOperationException("Oh, no!");
@@ -205,11 +124,12 @@ public class Usage
             // cancelled and all cancellation is completed before rethrowing the
             // original exception.
 
+            var channel1 = Channel.CreateBounded<int>(1);
+
             // Producer
-            var channel1 = group.RunSequence(token =>
+            group.Run(async token =>
             {
-                return Impl();
-                async IAsyncEnumerable<int> Impl()
+                try
                 {
                     foreach (var value in Enumerable.Range(1, 1_000))
                     {
@@ -217,37 +137,55 @@ public class Usage
                         await Task.Yield();
                         token.ThrowIfCancellationRequested();
 
-                        yield return value;
+                        await channel1.Writer.WriteAsync(value, token);
                     }
+
+                    channel1.Writer.Complete();
+                }
+                catch (Exception ex)
+                {
+                    channel1.Writer.Complete(ex);
                 }
             });
+
+            var channel2 = Channel.CreateBounded<int>(1);
 
             // Transformer 1
-            var channel2 = group.RunSequence(token =>
+            group.Run(async token =>
             {
-                return Impl();
-                async IAsyncEnumerable<int> Impl()
+                try
                 {
-                    await foreach (var value in channel1.WithCancellation(token))
-                        yield return value / 2;
+                    await foreach (var value in channel1.Reader.ReadAllAsync(token))
+                        await channel2.Writer.WriteAsync(value / 2, token);
+                    channel2.Writer.Complete();
+                }
+                catch (Exception ex)
+                {
+                    channel2.Writer.Complete(ex);
                 }
             });
 
+            var channel3 = Channel.CreateBounded<double>(1);
+
             // Transformer 2
-            var channel3 = group.RunSequence(token =>
+            group.Run(async token =>
             {
-                return Impl();
-                async IAsyncEnumerable<double> Impl()
+                try
                 {
-                    await foreach (var value in channel2.WithCancellation(token))
-                        yield return value * 3.0;
+                    await foreach (var value in channel2.Reader.ReadAllAsync(token))
+                        await channel3.Writer.WriteAsync(value * 3.0, token);
+                    channel3.Writer.Complete();
+                }
+                catch (Exception ex)
+                {
+                    channel3.Writer.Complete(ex);
                 }
             });
 
             return await group.RunAsync(async token =>
             {
                 var result = 0.0;
-                await foreach (var value in channel3.WithCancellation(token))
+                await foreach (var value in channel3.Reader.ReadAllAsync(token))
                     result += value;
                 return result;
             });
@@ -267,11 +205,12 @@ public class Usage
             // cancelled and all cancellation is completed before rethrowing the
             // original exception.
 
+            var channel1 = Channel.CreateBounded<int>(1);
+
             // Producer
-            var channel1 = group.RunSequence(token =>
+            group.Run(async token =>
             {
-                return Impl();
-                async IAsyncEnumerable<int> Impl()
+                try
                 {
                     foreach (var value in Enumerable.Range(1, 1_000))
                     {
@@ -279,30 +218,48 @@ public class Usage
                         await Task.Yield();
                         token.ThrowIfCancellationRequested();
 
-                        yield return value;
+                        await channel1.Writer.WriteAsync(value, token);
                     }
+
+                    channel1.Writer.Complete();
+                }
+                catch (Exception ex)
+                {
+                    channel1.Writer.Complete(ex);
                 }
             });
+
+            var channel2 = Channel.CreateBounded<int>(1);
 
             // Transformer 1
-            var channel2 = group.RunSequence(token =>
+            group.Run(async token =>
             {
-                return Impl();
-                async IAsyncEnumerable<int> Impl()
+                try
                 {
-                    await foreach (var value in channel1.WithCancellation(token))
-                        yield return value / 2;
+                    await foreach (var value in channel1.Reader.ReadAllAsync(token))
+                        await channel2.Writer.WriteAsync(value / 2, token);
+                    channel2.Writer.Complete();
+                }
+                catch (Exception ex)
+                {
+                    channel2.Writer.Complete(ex);
                 }
             });
 
+            var channel3 = Channel.CreateBounded<double>(1);
+
             // Transformer 2
-            var channel3 = group.RunSequence(token =>
+            group.Run(async token =>
             {
-                return Impl();
-                async IAsyncEnumerable<double> Impl()
+                try
                 {
-                    await foreach (var value in channel2.WithCancellation(token))
-                        yield return value * 3.0;
+                    await foreach (var value in channel2.Reader.ReadAllAsync(token))
+                        await channel3.Writer.WriteAsync(value * 3.0, token);
+                    channel3.Writer.Complete();
+                }
+                catch (Exception ex)
+                {
+                    channel3.Writer.Complete(ex);
                 }
             });
 

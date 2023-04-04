@@ -49,19 +49,6 @@ Reminder: if you are returning these results outside the task group scope, then 
 
 Result values are not treated as resources; their lifetime is not scoped to the task group.
 
-### Sequences
-
-Work can return multiple values by returning `IAsyncEnumerable<T>`.
-The work itself is queued as normal, and begins producing values immediately.
-The values go into a bounded channel.
-
-It's not possible to return sequences outside the task group, since the task group must complete (and thus the sequence must be complete).
-It is possible to have task group work explicitly write to a channel, or collect all the results and return them once the sequence (and thus the work) is complete.
-
-Sequence values that are produced after group cancellation are treated as resources and disposed immediately.
-
-If your sequence values are resources, please ensure they are disposed properly, and do not cancel reading from the sequence.
-
 ### Races
 
 The usual pattern for task groups is to cancel on failure and ignore success.

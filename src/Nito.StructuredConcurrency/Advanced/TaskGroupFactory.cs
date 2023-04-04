@@ -5,9 +5,12 @@
 /// </summary>
 public static class TaskGroupFactory
 {
+    /// <inheritdoc cref="WorkTaskGroup.WorkTaskGroup"/>
+    public static WorkTaskGroup CreateWorkTaskGroup(CancellationToken cancellationToken) => new(cancellationToken);
+
     /// <inheritdoc cref="TaskGroup.TaskGroup"/>
-    public static TaskGroup CreateTaskGroup(CancellationToken cancellationToken) => new(cancellationToken);
+    public static TaskGroup CreateTaskGroup(WorkTaskGroup group) => new(group);
 
     /// <inheritdoc cref="RacingTaskGroup{TResult}.RacingTaskGroup"/>
-    public static RacingTaskGroup<TResult> CreateRacingTaskGroup<TResult>(TaskGroup taskGroup, RaceResult<TResult> raceResult) => new(taskGroup, raceResult);
+    public static RacingTaskGroup<TResult> CreateRacingTaskGroup<TResult>(WorkTaskGroup group, RaceResult<TResult> raceResult) => new(group, raceResult);
 }
