@@ -1,4 +1,5 @@
-﻿using System.Buffers;
+﻿using Nito.StructuredConcurrency;
+using System.Buffers;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
@@ -12,7 +13,7 @@ namespace ChatApi
         private readonly Pipe _inputPipe;
         private readonly TaskCompletionSource<object> _completion;
 
-        public PipelineSocket(Socket connectedSocket, uint maxMessageSize = 65536)
+        public PipelineSocket(TaskGroup group, Socket connectedSocket, uint maxMessageSize = 65536)
         {
             Socket = connectedSocket;
             RemoteEndPoint = (IPEndPoint) connectedSocket.RemoteEndPoint!;
@@ -21,8 +22,8 @@ namespace ChatApi
             _inputPipe = new Pipe(new PipeOptions(pauseWriterThreshold: maxMessageSize + LengthPrefixLength));
             _completion = new TaskCompletionSource<object>();
 
-            PipelineToSocketAsync(_outputPipe.Reader, Socket);
-            SocketToPipelineAsync(Socket, _inputPipe.Writer);
+            group.Run(_ => PipelineToSocketAsync(_outputPipe.Reader, Socket));
+            group.Run(ct => SocketToPipelineAsync(Socket, _inputPipe.Writer, ct));
         }
 
         public Socket Socket { get; }
@@ -34,55 +35,31 @@ namespace ChatApi
         public PipeWriter Output => _outputPipe.Writer;
         public PipeReader Input => _inputPipe.Reader;
 
-        private void Close(Exception? exception = null)
-        {
-            if (exception != null)
-            {
-                if (_completion.TrySetException(exception))
-                    _inputPipe.Writer.Complete(exception);
-            }
-            else
-            {
-                if (_completion.TrySetResult(null!))
-                    _inputPipe.Writer.Complete();
-            }
-
-            try
-            {
-                Socket.Shutdown(SocketShutdown.Both);
-                Socket.Close();
-            }
-            catch
-            {
-                // Ignore
-            }
-        }
-
-        private async void SocketToPipelineAsync(Socket socket, PipeWriter pipeWriter)
+        private static async ValueTask SocketToPipelineAsync(Socket socket, PipeWriter pipeWriter, CancellationToken cancellationToken)
         {
             try
             {
                 while (true)
                 {
                     var buffer = pipeWriter.GetMemory();
-                    var bytesRead = await socket.ReceiveAsync(buffer, SocketFlags.None);
+                    var bytesRead = await SocketEx.TranslateExceptions(() => socket.ReceiveAsync(buffer, SocketFlags.None, CancellationToken.None));
                     if (bytesRead == 0) // Graceful close
-                    {
-                        Close();
                         break;
-                    }
 
                     pipeWriter.Advance(bytesRead);
-                    await pipeWriter.FlushAsync();
+                    await pipeWriter.FlushAsync(cancellationToken);
                 }
+
+                pipeWriter.Complete();
             }
             catch (Exception ex)
             {
-                Close(ex);
+                pipeWriter.Complete(ex);
+                throw;
             }
         }
 
-        private async void PipelineToSocketAsync(PipeReader pipeReader, Socket socket)
+        private static async ValueTask PipelineToSocketAsync(PipeReader pipeReader, Socket socket)
         {
             try
             {
@@ -96,7 +73,7 @@ namespace ChatApi
                         var memory = buffer.First;
                         if (memory.IsEmpty)
                             break;
-                        var bytesSent = await socket.SendAsync(memory, SocketFlags.None);
+                        var bytesSent = await SocketEx.TranslateExceptions(() => socket.SendAsync(memory, SocketFlags.None));
                         buffer = buffer.Slice(bytesSent);
                         if (bytesSent != memory.Length)
                             break;
@@ -105,15 +82,12 @@ namespace ChatApi
                     pipeReader.AdvanceTo(buffer.Start);
 
                     if (result.IsCompleted)
-                    {
-                        Close();
                         break;
-                    }
                 }
             }
-            catch (Exception ex)
+            finally
             {
-                Close(ex);
+                SocketEx.ShutdownAndClose(socket);
             }
         }
     }

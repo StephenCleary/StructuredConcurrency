@@ -2,85 +2,114 @@
 using ChatApi;
 using ChatApi.Messages;
 using ChatServer;
-using System.Buffers;
-using System.IO.Pipelines;
+using Nito.StructuredConcurrency;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 
 Console.WriteLine("Starting server...");
 
 var connections = new ConnectionCollection();
 
-var listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-listeningSocket.Bind(new IPEndPoint(IPAddress.Any, 33333));
-listeningSocket.Listen();
+var applicationExit = ConsoleEx.HookCtrlCCancellation();
 
-Console.WriteLine("Listening...");
-
-while (true)
+var serverGroupTask = TaskGroup.RunGroupAsync(applicationExit, async serverGroup =>
 {
-    var connectedSocket = await listeningSocket.AcceptAsync();
-    Console.WriteLine($"Got a connection from {connectedSocket.RemoteEndPoint} to {connectedSocket.LocalEndPoint}.");
-
-    ProcessSocketMainLoop(connectedSocket);
-}
-
-async void ProcessSocketMainLoop(Socket socket)
-{
-    var chatConnection = new ChatConnection(new PipelineSocket(socket));
-    var clientConnection = connections.Add(chatConnection);
-
-    try
+    // Define the "listener"; this work accepts new socket connections.
+    async IAsyncEnumerable<Socket> ListenAsync()
     {
-        await foreach (var message in chatConnection.InputMessages)
+        using var listeningSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        listeningSocket.Bind(new IPEndPoint(IPAddress.Any, 33333));
+        listeningSocket.Listen();
+
+        Console.WriteLine("Listening...");
+
+        while (true)
         {
-            if (message is ChatMessage chatMessage)
+            Socket? connectedSocket = null;
+            try
             {
-                Console.WriteLine($"Got message from {chatConnection.RemoteEndPoint}: {chatMessage.Text}");
-
-                var currentConnections = connections.CurrentConnections;
-                var from = clientConnection.Nickname ?? chatConnection.RemoteEndPoint.ToString();
-                var broadcastMessage = new BroadcastMessage(from, chatMessage.Text);
-                var tasks = currentConnections
-                    .Select(x => x.ChatConnection)
-                    .Where(x => x != chatConnection)
-                    .Select(connection => connection.SendMessageAsync(broadcastMessage));
-
-                try
-                {
-                    await Task.WhenAll(tasks);
-                }
-                catch
-                {
-                    // ignore
-                }
+                connectedSocket = await listeningSocket.AcceptAsync(serverGroup.CancellationToken);
             }
-            else if (message is SetNicknameRequestMessage setNicknameRequestMessage)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                Console.WriteLine($"Got nickname request message from {chatConnection.RemoteEndPoint}: {setNicknameRequestMessage.Nickname}");
-
-                if (connections.TrySetNickname(chatConnection, setNicknameRequestMessage.Nickname))
-                {
-                    await chatConnection.SendMessageAsync(new AckResponseMessage(setNicknameRequestMessage.RequestId));
-                }
-                else
-                {
-                    await chatConnection.SendMessageAsync(new NakResponseMessage(setNicknameRequestMessage.RequestId, "Nickname already taken."));
-                }
+                // Ignore accept failures.
+                continue;
             }
-            else
-                Console.WriteLine($"Got unknown message from {chatConnection.RemoteEndPoint}.");
+
+            Console.WriteLine($"Got a connection from {connectedSocket.RemoteEndPoint} to {connectedSocket.LocalEndPoint}.");
+            yield return connectedSocket;
         }
+    }
 
-        Console.WriteLine($"Connection at {chatConnection.RemoteEndPoint} was disconnected.");
-    }
-    catch (Exception ex)
+    await foreach (var socket in ListenAsync())
     {
-        Console.WriteLine($"Exception from {chatConnection.RemoteEndPoint}: [{ex.GetType().Name}] {ex.Message}");
+        serverGroup.Run(async ct =>
+        {
+            ChatConnection? chatConnection = null;
+            try
+            {
+                await TaskGroup.RunGroupAsync(ct, async group =>
+                {
+                    chatConnection = new ChatConnection(group, new PipelineSocket(group, socket));
+                    var clientConnection = connections.Add(chatConnection);
+                    try
+                    {
+                        await foreach (var message in chatConnection.InputMessages)
+                        {
+                            if (message is ChatMessage chatMessage)
+                            {
+                                Console.WriteLine($"Got message from {chatConnection.RemoteEndPoint}: {chatMessage.Text}");
+
+                                var currentConnections = connections.CurrentConnections;
+                                var from = clientConnection.Nickname ?? chatConnection.RemoteEndPoint.ToString();
+                                var broadcastMessage = new BroadcastMessage(from, chatMessage.Text);
+                                var tasks = currentConnections
+                                    .Select(x => x.ChatConnection)
+                                    .Where(x => x != chatConnection)
+                                    .Select(connection => connection.SendMessageAsync(broadcastMessage));
+
+                                try
+                                {
+                                    await Task.WhenAll(tasks);
+                                }
+                                catch
+                                {
+                                    // ignore
+                                }
+                            }
+                            else if (message is SetNicknameRequestMessage setNicknameRequestMessage)
+                            {
+                                Console.WriteLine($"Got nickname request message from {chatConnection.RemoteEndPoint}: {setNicknameRequestMessage.Nickname}");
+
+                                if (connections.TrySetNickname(chatConnection, setNicknameRequestMessage.Nickname))
+                                {
+                                    await chatConnection.SendMessageAsync(new AckResponseMessage(setNicknameRequestMessage.RequestId));
+                                }
+                                else
+                                {
+                                    await chatConnection.SendMessageAsync(new NakResponseMessage(setNicknameRequestMessage.RequestId, "Nickname already taken."));
+                                }
+                            }
+                            else
+                                Console.WriteLine($"Got unknown message from {chatConnection.RemoteEndPoint}.");
+                        }
+
+                        Console.WriteLine($"Connection at {chatConnection.RemoteEndPoint} was disconnected.");
+                    }
+                    finally
+                    {
+                        group.CancellationTokenSource.Cancel();
+                        connections.Remove(chatConnection);
+                    }
+                });
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Do not do a `throw;` here; that would cancel the server as soon as any client faulted.
+                Console.WriteLine($"Exception from {chatConnection!.RemoteEndPoint}: [{ex.GetType().Name}] {ex.Message}");
+            }
+        });
     }
-    finally
-    {
-        connections.Remove(chatConnection);
-    }
-}
+});
+
+await serverGroupTask.IgnoreCancellation();

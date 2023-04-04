@@ -1,24 +1,10 @@
 ﻿using ChatApi;
 using ChatApi.Messages;
+using Nito.StructuredConcurrency;
 using System;
-using System.Buffers;
-using System.Buffers.Binary;
-using System.Collections.Generic;
-using System.IO.Pipelines;
-using System.Linq;
-using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace ChatClient
 {
@@ -27,6 +13,7 @@ namespace ChatClient
     /// </summary>
     public partial class MainWindow : Window
     {
+        private TaskGroup? _group;
         private ChatConnection? _chatConnection;
 
         public MainWindow()
@@ -41,9 +28,10 @@ namespace ChatClient
 
             Log.Text += $"Connected to {clientSocket.RemoteEndPoint}\n";
 
-            _chatConnection = new ChatConnection(new PipelineSocket(clientSocket));
+            _group = Nito.StructuredConcurrency.Advanced.TaskGroupFactory.CreateTaskGroup(default);
+            _chatConnection = new ChatConnection(_group, new PipelineSocket(_group, clientSocket));
 
-            await ProcessSocketAsync(_chatConnection);
+            _group.Run(async _ => await ProcessSocketAsync(_chatConnection));
         }
 
         private async void Button_Click_1(object sender, RoutedEventArgs e)
@@ -59,9 +47,12 @@ namespace ChatClient
             }
         }
 
-        private void Button_Click_2(object sender, RoutedEventArgs e)
+        private async void Button_Click_2(object sender, RoutedEventArgs e)
         {
-            _chatConnection?.Complete();
+            if (_group == null)
+                return;
+            _group.CancellationTokenSource.Cancel();
+            await _group.DisposeAsync();
         }
 
         private async Task ProcessSocketAsync(ChatConnection chatConnection)
@@ -77,12 +68,14 @@ namespace ChatClient
                     else
                         Log.Text += $"Got unknown message from {chatConnection.RemoteEndPoint}.\n";
                 }
-
-                Log.Text += $"Connection at {chatConnection.RemoteEndPoint} was disconnected.\n";
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 Log.Text += $"Exception from {chatConnection.RemoteEndPoint}: [{ex.GetType().Name}] {ex.Message}\n";
+            }
+            finally
+            {
+                Log.Text += $"Connection at {chatConnection.RemoteEndPoint} was disconnected.\n";
             }
         }
 

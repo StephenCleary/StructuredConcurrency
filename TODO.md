@@ -1,3 +1,4 @@
+- TaskGroup should have a synchronous AddResource for IDisposable types.
 - Finish HappyEyeballs
 - Write TCP/IP chat app for comparison.
   - Pipelines, etc.

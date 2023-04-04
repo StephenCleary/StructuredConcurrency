@@ -1,16 +1,10 @@
 ﻿using ChatApi.Messages;
-using System;
+using Nito.StructuredConcurrency;
 using System.Buffers;
-using System.Buffers.Binary;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.IO.Pipelines;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading.Channels;
-using System.Threading.Tasks;
 using static ChatApi.Internals.MessageSerialization;
 
 namespace ChatApi
@@ -24,7 +18,7 @@ namespace ChatApi
         private readonly Timer _timer;
         private readonly ConcurrentDictionary<Guid, TaskCompletionSource> _outstandingRequests = new();
 
-        public ChatConnection(IPipelineSocket pipelineSocket, TimeSpan keepaliveTimeSpan = default)
+        public ChatConnection(TaskGroup group, IPipelineSocket pipelineSocket, TimeSpan keepaliveTimeSpan = default)
         {
             keepaliveTimeSpan = keepaliveTimeSpan == default ? TimeSpan.FromSeconds(5) : keepaliveTimeSpan;
 
@@ -33,14 +27,16 @@ namespace ChatApi
             _inputChannel = Channel.CreateBounded<IMessage>(4);
             _outputChannel = Channel.CreateBounded<IMessage>(4);
             _timer = new Timer(_ => SendKeepaliveMessage(), null, keepaliveTimeSpan, Timeout.InfiniteTimeSpan);
-            PipelineToChannelAsync();
-            ChannelToPipelineAsync();
+
+            group.CancellationToken.Register(() => _timer.Dispose());
+            group.CancellationToken.Register(() => _outputChannel.Writer.Complete());
+
+            group.Run(_ => PipelineToChannelAsync());
+            group.Run(ct => ChannelToPipelineAsync(ct));
         }
 
         public Socket Socket => _pipelineSocket.Socket;
         public IPEndPoint RemoteEndPoint => _pipelineSocket.RemoteEndPoint;
-
-        public void Complete() => _outputChannel.Writer.Complete();
 
         public Task SetNicknameAsync(string nickname)
         {
@@ -70,36 +66,29 @@ namespace ChatApi
             _timer.Change(_keepaliveTimeSpan, Timeout.InfiniteTimeSpan);
         }
 
-        private void Close(Exception? exception = null)
-        {
-            _timer.Dispose();
-            _inputChannel.Writer.TryComplete(exception);
-            _pipelineSocket.Output.CancelPendingFlush();
-            _pipelineSocket.Output.Complete();
-        }
-
-        private async void ChannelToPipelineAsync()
+        private async ValueTask ChannelToPipelineAsync(CancellationToken cancellationToken)
         {
             try
             {
-                await foreach (var message in _outputChannel.Reader.ReadAllAsync())
+                await foreach (var message in _outputChannel.Reader.ReadAllAsync(CancellationToken.None))
                 {
                     WriteMessage(message, _pipelineSocket.Output);
 
-                    var flushResult = await _pipelineSocket.Output.FlushAsync();
+                    var flushResult = await _pipelineSocket.Output.FlushAsync(cancellationToken);
                     if (flushResult.IsCanceled)
                         break;
                 }
 
-                Close();
+                _pipelineSocket.Output.Complete();
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                Close(exception);
+                _pipelineSocket.Output.Complete(ex);
+                throw;
             }
         }
 
-        private async void PipelineToChannelAsync()
+        private async ValueTask PipelineToChannelAsync()
         {
             try
             {
@@ -142,15 +131,15 @@ namespace ChatApi
                     }
 
                     if (data.IsCompleted)
-                    {
-                        Close();
                         break;
-                    }
                 }
+
+                _inputChannel.Writer.TryComplete();
             }
             catch (Exception ex)
             {
-                Close(ex);
+                _inputChannel.Writer.TryComplete(ex);
+                throw;
             }
         }
 
