@@ -1,4 +1,5 @@
 ﻿using Nito.StructuredConcurrency.Advanced;
+using Nito.StructuredConcurrency.Internals;
 
 namespace Nito.StructuredConcurrency;
 
@@ -44,20 +45,20 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     /// Results of successful races that do not "win" (i.e., are not the first result) are treated as resources and are immediately disposed.
     /// </summary>
     /// <param name="work">The race work to do.</param>
-    public void Race(Func<CancellationToken, ValueTask<TResult>> work)
+    public void Race(Func<CancellationToken, ValueTask<TResult>> work) => _group.Race(_raceResult, work);
+
+#pragma warning disable CA1068 // CancellationToken parameters must come last
+#pragma warning disable CA2000 // Dispose objects before losing scope
+    internal static async Task<TResult> RaceGroupAsync(CancellationToken cancellationToken, Func<RacingTaskGroup<TResult>, ValueTask> work)
     {
-        _ = _group.WorkAsync(async ct =>
-        {
-            try
-            {
-                var result = await work(ct).ConfigureAwait(false);
-                await _raceResult.ReportResultAsync(result).ConfigureAwait(false);
-                _group.CancellationTokenSource.Cancel();
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _raceResult.ReportException(ex);
-            }
-        });
+        var raceResult = new RaceResult<TResult>();
+
+        var raceGroup = new RacingTaskGroup<TResult>(new WorkTaskGroup(cancellationToken), raceResult);
+        await using (raceGroup.ConfigureAwait(false))
+            raceGroup._group.Run(_ => work(raceGroup));
+
+        return raceResult.GetResult();
     }
+#pragma warning restore CA2000 // Dispose objects before losing scope
+#pragma warning restore CA1068 // CancellationToken parameters must come last
 }

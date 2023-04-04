@@ -18,14 +18,8 @@ public sealed partial class TaskGroup
 #pragma warning disable CA2000 // Dispose objects before losing scope
         var group = new TaskGroup(new WorkTaskGroup(cancellationToken));
 #pragma warning restore CA2000 // Dispose objects before losing scope
-        try
-        {
+        await using (group.ConfigureAwait(false))
             return await group.RunAsync(_ => work(group)).ConfigureAwait(false);
-        }
-        finally
-        {
-            await group.DisposeAsync().ConfigureAwait(false);
-        }
     }
 
     /// <summary>
@@ -58,22 +52,8 @@ public sealed partial class TaskGroup
     /// </summary>
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first run task of the task group.</param>
-    public static async Task<T> RaceGroupAsync<T>(CancellationToken cancellationToken, Func<RacingTaskGroup<T>, ValueTask> work)
-    {
-        var raceResult = new RaceResult<T>();
-        
-        var workGroup = new WorkTaskGroup(cancellationToken);
-        var runWorkGroup = new TaskGroup(workGroup);
-        var raceGroup = new RacingTaskGroup<T>(workGroup, raceResult);
-
-        runWorkGroup.Run(_ => work(raceGroup));
-        
-        await raceGroup.DisposeAsync().ConfigureAwait(false);
-        await runWorkGroup.DisposeAsync().ConfigureAwait(false);
-        await workGroup.DisposeAsync().ConfigureAwait(false);
-
-        return raceResult.GetResult();
-    }
+    public static Task<T> RaceGroupAsync<T>(CancellationToken cancellationToken, Func<RacingTaskGroup<T>, ValueTask> work) =>
+        RacingTaskGroup<T>.RaceGroupAsync(cancellationToken, work);
 
     /// <summary>
     /// Creates a new <see cref="RacingTaskGroup{TResult}"/> and runs the specified work as the first run task.
@@ -81,5 +61,5 @@ public sealed partial class TaskGroup
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first run task of the task group.</param>
     public static Task<T> RaceGroupAsync<T>(CancellationToken cancellationToken, Action<RacingTaskGroup<T>> work) =>
-        RaceGroupAsync<T>(cancellationToken, work.AsAsync());
+        RacingTaskGroup<T>.RaceGroupAsync(cancellationToken, work.AsAsync());
 }

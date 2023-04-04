@@ -51,7 +51,7 @@ public sealed partial class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public void Run(Func<CancellationToken, ValueTask> work) => _ = RunAsync(work.WithResult());
+    public void Run(Func<CancellationToken, ValueTask> work) => _group.Run(work);
 
     /// <summary>
     /// Runs a child task (<paramref name="work"/>) as part of this task group.
@@ -61,23 +61,7 @@ public sealed partial class TaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public Task<T> RunAsync<T>(Func<CancellationToken, ValueTask<T>> work)
-    {
-        return _group.WorkAsync(CancelOnException(CancellationTokenSource, work));
-
-        static Func<CancellationToken, ValueTask<T>> CancelOnException(CancellationTokenSource cancellationTokenSource, Func<CancellationToken, ValueTask<T>> work) => async cancellationToken =>
-        {
-            try
-            {
-                return await work(cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                cancellationTokenSource.Cancel();
-                throw;
-            }
-        };
-    }
+    public Task<T> RunAsync<T>(Func<CancellationToken, ValueTask<T>> work) => _group.RunAsync(work);
 
     /// <summary>
     /// Asynchronously waits for all tasks in this task group to complete, disposes any resources owned by the task group, and then raises any exceptions observed by tasks in this task group.
