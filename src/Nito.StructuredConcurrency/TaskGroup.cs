@@ -51,18 +51,18 @@ public static class TaskGroup
         RunGroupAsync(cancellationToken, work.AsAsync().WithResult());
 
     /// <summary>
-    /// Creates a new <see cref="RacingTaskGroup{TResult}"/> and runs the specified work as the first run task.
+    /// Creates a new <see cref="RaceTaskGroup{TResult}"/> and runs the specified work as the first run task.
     /// </summary>
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first run task of the task group.</param>
-    public static Task<T> RaceGroupAsync<T>(CancellationToken cancellationToken, Func<RacingTaskGroup<T>, ValueTask> work) =>
-        RacingTaskGroup<T>.RaceGroupAsync(cancellationToken, work);
+    public static Task<T> RaceGroupAsync<T>(CancellationToken cancellationToken, Func<RaceTaskGroup<T>, ValueTask> work) =>
+        RaceTaskGroup<T>.RaceGroupAsync(cancellationToken, work);
 
     /// <summary>
-    /// Creates a new <see cref="RacingTaskGroup{TResult}"/> and runs the specified work as the first run task.
+    /// Creates a new <see cref="RaceTaskGroup{TResult}"/> and runs the specified work as the first run task.
     /// </summary>
     /// <param name="cancellationToken">An upstream cancellation token for the task group.</param>
     /// <param name="work">The first run task of the task group.</param>
-    public static Task<T> RaceGroupAsync<T>(CancellationToken cancellationToken, Action<RacingTaskGroup<T>> work) =>
-        RacingTaskGroup<T>.RaceGroupAsync(cancellationToken, work.AsAsync());
+    public static Task<T> RaceGroupAsync<T>(CancellationToken cancellationToken, Action<RaceTaskGroup<T>> work) =>
+        RaceTaskGroup<T>.RaceGroupAsync(cancellationToken, work.AsAsync());
 }

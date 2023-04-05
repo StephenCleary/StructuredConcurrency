@@ -12,7 +12,7 @@ namespace Nito.StructuredConcurrency;
 /// </list>
 /// </summary>
 /// <typeparam name="TResult">The type of the value that is the result of the race.</typeparam>
-public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
+public sealed class RaceTaskGroup<TResult> : IAsyncDisposable
 {
     private readonly TaskGroupCore _group;
     private readonly RaceResult<TResult> _raceResult;
@@ -20,7 +20,7 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
     /// <summary>
     /// Creates a racing task group.
     /// </summary>
-    internal RacingTaskGroup(TaskGroupCore group, RaceResult<TResult> raceResult)
+    internal RaceTaskGroup(TaskGroupCore group, RaceResult<TResult> raceResult)
     {
         _group = group;
         _raceResult = raceResult;
@@ -49,11 +49,11 @@ public sealed class RacingTaskGroup<TResult> : IAsyncDisposable
 
 #pragma warning disable CA1068 // CancellationToken parameters must come last
 #pragma warning disable CA2000 // Dispose objects before losing scope
-    internal static async Task<TResult> RaceGroupAsync(CancellationToken cancellationToken, Func<RacingTaskGroup<TResult>, ValueTask> work)
+    internal static async Task<TResult> RaceGroupAsync(CancellationToken cancellationToken, Func<RaceTaskGroup<TResult>, ValueTask> work)
     {
         var raceResult = new RaceResult<TResult>();
 
-        var raceGroup = new RacingTaskGroup<TResult>(new TaskGroupCore(cancellationToken), raceResult);
+        var raceGroup = new RaceTaskGroup<TResult>(new TaskGroupCore(cancellationToken), raceResult);
         await using (raceGroup.ConfigureAwait(false))
             raceGroup._group.Run(_ => work(raceGroup));
 
