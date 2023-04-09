@@ -8,6 +8,15 @@ Structured Concurrency for C#.
 A task group provides a scope in which work is done.
 At the end of that scope, the task group (asynchronously) waits for all of its work to complete.
 
+```C#
+var groupTask = TaskGroup.RunGroupAsync(default, group =>
+{
+    group.Run(async token => await Task.Delay(TimeSpan.FromSeconds(1), token));
+    group.Run(async token => await Task.Delay(TimeSpan.FromSeconds(2), token));
+});
+await groupTask; // Completes after 2 seconds.
+```
+
 A `TaskGroup` is started with `TaskGroup.RunGroupAsync`.
 The delegate passed to `RunGroupAsync` is the first work item; it can run any other work items in that same group.
 When all the work items have completed, then the group scope closes, and the task returned from `RunGroupAsync` completes.
@@ -16,21 +25,66 @@ Work may be added to a task group at any time by calling `Run`, as long as the s
 Conceptually, the task group scope ends with a kind of `Task.WhenAll`, but with the important difference that more work may be added after the disposal begins.
 As long as the work is added before all other work completes, the task group will "extend" its logical `WhenAll` to include the additional work.
 
+```C#
+var groupTask = TaskGroup.RunGroupAsync(default, group =>
+{
+    // Any group work can kick off other group work.
+    group.Run(async token =>
+    {
+        for (int i = 0; i != 3; ++i)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1), token));
+            group.Run(async token => await Task.Delay(TimeSpan.FromSeconds(1), token));
+        }
+    });
+});
+await groupTask; // Completes after 4 seconds.
+```
+
 ### Exceptions
 
 If any work throws an exception (except `OperationCanceledException`), then that work is considered "faulted".
 The task group immediately enters a canceled state (see below), cancelling all of its other work.
 
+```C#
+var groupTask = TaskGroup.RunGroupAsync(default, group =>
+{
+    group.Run(async token =>
+    {
+        await Task.Delay(TimeSpan.FromSeconds(1), token);
+        throw new Exception("oops");
+    });
+
+    // This task would normally take 2 seconds, but is canceled after 1 second.
+    group.Run(async token => await Task.Delay(TimeSpan.FromSeconds(2), token));
+});
+await groupTask; // Completes after 1 second and raises Exception("oops").
+```
+
 At the end of the task group scope, the task group will still wait for all of its work to complete.
-Once all of the work has completed, then the task group disposal will re-raise the first exception from its faulted work.
+Once all of the work has completed, then the task group task will re-raise the first exception from its faulted work.
+
+```C#
+var groupTask = TaskGroup.RunGroupAsync(default, group =>
+{
+    group.Run(async token =>
+    {
+        await Task.Delay(TimeSpan.FromSeconds(1), token);
+        throw new Exception("oops");
+    });
+
+    // This task takes 2 seconds since it ignores cancellation.
+    group.Run(async _ => await Task.Delay(TimeSpan.FromSeconds(2)));
+});
+await groupTask; // Completes after 2 seconds and raises Exception("oops").
+```
 
 ### Cancellation
 
 Task groups always ignore any work that is cancelled (i.e., task groups catch and ignore `OperationCanceledException`).
-
 Task groups provide `CancellationToken` parameters to all of their work, and it is the work's responsibility to respond to that cancellation.
+The task group will cancel itself if any work item faults (with an exception other than `OperationCanceledException`).
 
-The task group will cancel itself if any work item faults.
 Task groups also take a `CancellationToken` as parameter to the static `RunGroupAsync` methods to enable cancellation from "upstream"; e.g., if the application is shutting down.
 Task groups can also be cancelled manually (via `TaskGroup.CancellationTokenSource`) if the program logic wishes to stop the task group for any reason.
 
