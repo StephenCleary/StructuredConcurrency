@@ -106,7 +106,7 @@ A task group can own resources.
 These resources will be disposed by the task group after all its work is done.
 
 ```C#
-var groupTask = TaskGroup.RunGroupAsync(default, group =>
+var groupTask = TaskGroup.RunGroupAsync(default, async group =>
 {
     await group.AddResourceAsync(myDisposableResource);
 
@@ -116,12 +116,6 @@ await groupTask; // First, waits for all tasks to completes; then, disposes myDi
 ```
 
 All exceptions raised by disposal of any resource are ignored.
-
-### Results
-
-Most work has no results, but it is possible for a work item to return a single value.
-Work that returns a value is initiated by calling `RunAsync`, which returns an awaitable result.
-Reminder: if you are returning these results outside the task group scope, then the task group must complete all its work before that scope is complete.
 
 ### Races
 
@@ -133,5 +127,15 @@ This creates a separate group along with a race result that are used for races.
 To race work, call `Race` instead of `Run`.
 The first successful `Race` will cancel all the others.
 Once all races have completed (i.e., the race child group's scope is complete), then the results of the race are returned from `RaceGroupAsync`.
+
+```C#
+var groupTask = TaskGroup.RaceGroupAsync<int>(default, group =>
+{
+    group.Race(async token => { await Task.Delay(TimeSpan.FromSeconds(1), token); return 1; });
+    group.Race(async token => { await Task.Delay(TimeSpan.FromSeconds(2), token); return 2; });
+    group.Race(async token => { await Task.Delay(TimeSpan.FromSeconds(3), token); return 3; });
+});
+var result = await groupTask; // Returns `1` after 1 second.
+```
 
 Successful results that lose the race are treated as resources, but are disposed immediately rather than scoped to the race child group.

@@ -5,6 +5,15 @@
 
 - Open question: is there value in an ITaskGroup interface?
 
+
+### Results
+
+Most work has no results, but it is possible for a work item to return a single value.
+Work that returns a value is initiated by calling `RunAsync`, which returns an awaitable result.
+Reminder: if you are returning these results outside the task group scope, then the task group must complete all its work before that scope is complete.
+
+## Channels
+
 ## Child Task Groups
 
 Task groups may spawn "child" task groups by starting a new task group and passing the parent group's cancellation to it. If a parent task group is cancelled, that cancellation flows down and cancels its child task groups.
