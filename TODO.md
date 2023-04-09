@@ -7,11 +7,7 @@
 
 ## Child Task Groups
 
-Task groups may spawn child task groups.
-These behave differently from work that is attached to a task group.
-
-Cancellation flows "down" from parent task groups to child task groups.
-If a parent task group is cancelled, that cancellation flows down and cancels all child task groups.
+Task groups may spawn "child" task groups by starting a new task group and passing the parent group's cancellation to it. If a parent task group is cancelled, that cancellation flows down and cancels its child task groups.
 
 Exceptions also flow "up" from child task groups to parent task groups.
 When a child task group's work faults, the exception will cancel the child task group and will cause the child task group to throw an exception at the end of its scope.

@@ -18,7 +18,7 @@ await groupTask; // Completes after 2 seconds.
 ```
 
 A `TaskGroup` is started with `TaskGroup.RunGroupAsync`.
-The delegate passed to `RunGroupAsync` is the first work item; it can run any other work items in that same group.
+The delegate passed to `RunGroupAsync` is the first work item; it can do its own work and/or add other work items to that same group.
 When all the work items have completed, then the group scope closes, and the task returned from `RunGroupAsync` completes.
 
 Work may be added to a task group at any time by calling `Run`, as long as the scope has not completed.
@@ -88,10 +88,32 @@ The task group will cancel itself if any work item faults (with an exception oth
 Task groups also take a `CancellationToken` as parameter to the static `RunGroupAsync` methods to enable cancellation from "upstream"; e.g., if the application is shutting down.
 Task groups can also be cancelled manually (via `TaskGroup.CancellationTokenSource`) if the program logic wishes to stop the task group for any reason.
 
+```C#
+var groupTask = TaskGroup.RunGroupAsync(default, group =>
+{
+    // Apply a timeout for all work sent to this group.
+    group.CancellationTokenSource.CancelAfter(TimeSpan.FromSeconds(2));
+
+    group.Run(async token => await Task.Delay(TimeSpan.FromSeconds(1), token));
+    group.Run(async token => await Task.Delay(Timeout.InfiniteTimeSpan, token));
+});
+await groupTask; // Completes after 2 seconds.
+```
+
 ### Resources
 
 A task group can own resources.
 These resources will be disposed by the task group after all its work is done.
+
+```C#
+var groupTask = TaskGroup.RunGroupAsync(default, group =>
+{
+    await group.AddResourceAsync(myDisposableResource);
+
+    group.Run(async token => await myDisposableResource.DoWorkAsync(token));
+});
+await groupTask; // First, waits for all tasks to completes; then, disposes myDisposableResource.
+```
 
 All exceptions raised by disposal of any resource are ignored.
 
@@ -100,8 +122,6 @@ All exceptions raised by disposal of any resource are ignored.
 Most work has no results, but it is possible for a work item to return a single value.
 Work that returns a value is initiated by calling `RunAsync`, which returns an awaitable result.
 Reminder: if you are returning these results outside the task group scope, then the task group must complete all its work before that scope is complete.
-
-Result values are not treated as resources; their lifetime is not scoped to the task group.
 
 ### Races
 
