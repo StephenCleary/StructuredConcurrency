@@ -6,7 +6,7 @@
 public static class TaskGroupFactory
 {
     /// <inheritdoc cref="TaskGroupCore.TaskGroupCore"/>
-    public static TaskGroupCore CreateWorkTaskGroup(CancellationToken cancellationToken) => new(cancellationToken);
+    public static TaskGroupCore CreateTaskGroupCore(CancellationToken cancellationToken) => new(cancellationToken);
 
     /// <inheritdoc cref="RunTaskGroup.RunTaskGroup"/>
 #pragma warning disable CA2000 // Dispose objects before losing scope
