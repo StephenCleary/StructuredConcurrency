@@ -112,7 +112,7 @@ var groupTask = TaskGroup.RunGroupAsync(default, async group =>
 
     group.Run(async token => await myDisposableResource.DoWorkAsync(token));
 });
-await groupTask; // First, waits for all tasks to completes; then, disposes myDisposableResource.
+await groupTask; // First, waits for all tasks to complete; then, disposes myDisposableResource.
 ```
 
 All exceptions raised by disposal of any resource are ignored.
