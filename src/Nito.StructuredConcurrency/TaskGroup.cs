@@ -22,7 +22,7 @@ public static class TaskGroup
         var group = new RunTaskGroup(new TaskGroupCore(cancellationToken));
 #pragma warning restore CA2000 // Dispose objects before losing scope
         await using (group.ConfigureAwait(false))
-            return await group.RunAsync(_ => work(group)).ConfigureAwait(false);
+            return await group.DoRunAsync(_ => work(group)).ConfigureAwait(false);
     }
 
     /// <summary>

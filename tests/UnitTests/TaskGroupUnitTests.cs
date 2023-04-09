@@ -1,5 +1,6 @@
 using Nito.Disposables;
 using Nito.StructuredConcurrency;
+using Nito.StructuredConcurrency.Internals;
 
 namespace UnitTests;
 

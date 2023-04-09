@@ -182,13 +182,10 @@ public class Usage
                 }
             });
 
-            return await group.RunAsync(async token =>
-            {
-                var result = 0.0;
-                await foreach (var value in channel3.Reader.ReadAllAsync(token))
-                    result += value;
-                return result;
-            });
+            var result = 0.0;
+            await foreach (var value in channel3.Reader.ReadAllAsync(group.CancellationToken))
+                result += value;
+            return result;
         });
 
         Assert.Equal(750000, result);

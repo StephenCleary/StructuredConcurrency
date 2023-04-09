@@ -59,7 +59,7 @@ public sealed class RunTaskGroup : IAsyncDisposable
     /// If the task group has already completed disposing, this method will throw an <see cref="InvalidOperationException"/>.
     /// </summary>
     /// <param name="work">The child work to be done soon. This delegate is passed a <see cref="CancellationToken"/> that is canceled when the task group is canceled. This delegate will be scheduled onto the current context.</param>
-    public Task<T> RunAsync<T>(Func<CancellationToken, ValueTask<T>> work) => _group.RunAsync(work);
+    internal Task<T> DoRunAsync<T>(Func<CancellationToken, ValueTask<T>> work) => _group.RunAsync(work);
 
     /// <summary>
     /// Asynchronously waits for all tasks in this task group to complete, disposes any resources owned by the task group, and then raises any exceptions observed by tasks in this task group.
