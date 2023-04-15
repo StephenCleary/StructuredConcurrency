@@ -44,7 +44,8 @@ await groupTask; // Completes after 4 seconds.
 ### Exceptions
 
 If any work throws an exception (except `OperationCanceledException`), then that work is considered "faulted".
-The task group immediately enters a canceled state (see below), cancelling all of its other work.
+The task group immediately enters a canceled state (see below), cancelling all of its other work that are sharing
+the same `CancellationToken`.
 
 ```C#
 var groupTask = TaskGroup.RunGroupAsync(default, group =>
@@ -61,7 +62,8 @@ var groupTask = TaskGroup.RunGroupAsync(default, group =>
 await groupTask; // Completes after 1 second and raises Exception("oops").
 ```
 
-At the end of the task group scope, the task group will still wait for all of its work to complete.
+At the end of the task group scope, the task group will still wait for all of its work to complete that do not 
+share the same `CancellationToken`.
 Once all of the work has completed, then the task group task will re-raise the first exception from its faulted work.
 
 ```C#
